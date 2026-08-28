@@ -5,6 +5,21 @@ same migration runs against a Supabase instance you host yourself, or any plain
 Postgres with PostgREST in front of it. That is the point: moving later is a URL
 change, not a rewrite.
 
+Everything lives in its own `nayla` schema, and the two functions are prefixed
+`nayla_sync_push` / `nayla_sync_pull`, so the migration is safe to apply into a
+project that already hosts something else. Removing it again is:
+
+```sql
+drop schema nayla cascade;
+drop function if exists public.nayla_sync_push(text, jsonb);
+drop function if exists public.nayla_sync_pull(text, bigint);
+```
+
+The functions sit in `public` rather than in `nayla` because `public` is the
+schema PostgREST exposes by default — putting them elsewhere would mean editing
+the API settings, which is one more thing to remember when standing up a second
+instance.
+
 ## Hosted Supabase
 
 1. Create a project (the free tier is ample — the log is kilobytes).
@@ -40,11 +55,12 @@ instance a ten-minute job.
 
 ## Design notes
 
-**The table is unreachable.** RLS is on with no policies, and `anon` has no
-grants — the only way in is `sync_push` / `sync_pull`, which are
-`security definer` and demand the pairing code. This matters because the anon
-key ships inside the app and is public by design; on its own it gets you
-nothing.
+**The table is unreachable.** `anon` has no grant on the `nayla` schema, so a
+direct read fails before it reaches the table; RLS is enabled with no policies
+behind that as a second line. The only way in is `nayla_sync_push` /
+`nayla_sync_pull`, which are `security definer` and demand the pairing code.
+This matters because the anon key ships inside the app and is public by design;
+on its own it gets you nothing.
 
 **The pairing code is a bearer secret.** Anyone holding it can read and write
 that household's log. It's 128 bits of randomness, so guessing is out, but treat

@@ -43,7 +43,7 @@ const server = createServer(async (req, res) => {
     }));
     try {
       const fn = path.split('/').pop();
-      const out = fn === 'sync_push' ? push(body.p_code, body.p_rows) : pull(body.p_code, body.p_since);
+      const out = fn === 'nayla_sync_push' ? push(body.p_code, body.p_rows) : pull(body.p_code, body.p_since);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(out));
     } catch (err) {

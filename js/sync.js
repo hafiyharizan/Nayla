@@ -97,14 +97,14 @@ const Sync = (() => {
     try {
       const pending = Store.pending();
       if (pending.length) {
-        await rpc('sync_push', { p_code: code, p_rows: pending.map(toRow) });
+        await rpc('nayla_sync_push', { p_code: code, p_rows: pending.map(toRow) });
         Store.markPushed(pending.map(r => r.id));
       }
 
       // Pulling straight after pushing is deliberate: it brings our own rows
       // back carrying the revs the server assigned them.
       const since = Store.settings().lastPulledAt || 0;
-      const rows = await rpc('sync_pull', { p_code: code, p_since: since });
+      const rows = await rpc('nayla_sync_pull', { p_code: code, p_since: since });
       const cursor = rows.reduce((max, r) => Math.max(max, Number(r.rev)), since);
       Store.merge(rows.map(fromRow));
       Store.saveSettings({ lastPulledAt: cursor });
