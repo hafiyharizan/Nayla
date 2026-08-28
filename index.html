@@ -42,39 +42,10 @@
       <button class="btn btn-primary btn-sleep" id="sleepToggle">Start sleep</button>
     </div>
 
-    <div class="stat-row">
-      <button class="stat" data-quick="feed">
-        <span class="stat-icon">🍼</span>
-        <span class="stat-label">Last feed</span>
-        <strong class="stat-value" id="lastFeed">—</strong>
-        <span class="stat-note" id="lastFeedNote"></span>
-      </button>
-      <button class="stat" data-quick="diaper">
-        <span class="stat-icon">🧷</span>
-        <span class="stat-label">Last diaper</span>
-        <strong class="stat-value" id="lastDiaper">—</strong>
-        <span class="stat-note" id="lastDiaperNote"></span>
-      </button>
-      <button class="stat" data-quick="sleep">
-        <span class="stat-icon">🌙</span>
-        <span class="stat-label">Last sleep</span>
-        <strong class="stat-value" id="lastSleep">—</strong>
-        <span class="stat-note" id="lastSleepNote"></span>
-      </button>
-    </div>
+    <div class="stat-row" id="statusRow"></div>
 
     <h2 class="section-title">Log something</h2>
-    <div class="quick-grid">
-      <button class="quick quick-feed" data-log="feed">
-        <span class="quick-icon">🍼</span><span>Feed</span>
-      </button>
-      <button class="quick quick-diaper" data-log="diaper">
-        <span class="quick-icon">🧷</span><span>Diaper</span>
-      </button>
-      <button class="quick quick-sleep" data-log="sleep">
-        <span class="quick-icon">🌙</span><span>Sleep</span>
-      </button>
-    </div>
+    <div class="quick-grid" id="quickGrid"></div>
 
     <h2 class="section-title">Today</h2>
     <div class="today" id="todaySummary"></div>
@@ -85,12 +56,7 @@
 
   <!-- ───────────────────────── HISTORY ───────────────────────── -->
   <section id="view-history" class="view" data-view="history" hidden>
-    <div class="filters" id="historyFilters">
-      <button class="chip is-on" data-filter="all">All</button>
-      <button class="chip" data-filter="feed">Feeds</button>
-      <button class="chip" data-filter="diaper">Diapers</button>
-      <button class="chip" data-filter="sleep">Sleep</button>
-    </div>
+    <div class="filters" id="historyFilters"></div>
     <div id="historyList"></div>
   </section>
 
@@ -121,9 +87,36 @@
       </label>
     </div>
 
+    <h2 class="section-title">Sync</h2>
+    <div class="card form">
+      <p class="muted" id="syncStatus">Sync is off — the log stays on this device.</p>
+      <label class="field">
+        <span>Server URL</span>
+        <input type="url" id="setSyncUrl" autocomplete="off" autocapitalize="off"
+               spellcheck="false" placeholder="https://your-project.supabase.co">
+      </label>
+      <label class="field">
+        <span>Anon key</span>
+        <input type="text" id="setSyncKey" autocomplete="off" autocapitalize="off"
+               spellcheck="false" placeholder="public anon key">
+      </label>
+      <label class="field">
+        <span>Pairing code</span>
+        <input type="text" id="setSyncCode" autocomplete="off" autocapitalize="off"
+               spellcheck="false" placeholder="shared secret">
+      </label>
+      <div class="btn-row">
+        <button class="btn" id="genCode">New code</button>
+        <button class="btn" id="syncNow">Sync now</button>
+      </div>
+      <p class="muted">Put the same three values on both phones and they share one log.
+        The pairing code is the secret that unlocks it — anyone who has it can read
+        and write everything, so share it directly, and keep it out of backups.</p>
+    </div>
+
     <h2 class="section-title">Data</h2>
     <div class="card form">
-      <p class="muted">Everything is stored on this device only. Nothing is uploaded anywhere.</p>
+      <p class="muted" id="dataScope"></p>
       <div class="btn-row">
         <button class="btn" id="exportJson">Export JSON</button>
         <button class="btn" id="exportCsv">Export CSV</button>
@@ -170,8 +163,11 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="js/store.js"></script>
+<script src="js/config.js"></script>
 <script src="js/format.js"></script>
+<script src="js/features.js"></script>
+<script src="js/store.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/wake.js"></script>
 <script src="js/sheet.js"></script>
 <script src="js/app.js"></script>

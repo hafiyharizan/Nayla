@@ -1,0 +1,12 @@
+{
+  "name": "nayla",
+  "private": true,
+  "description": "Baby tracker — the app itself has no dependencies; these are for the tests.",
+  "scripts": {
+    "test": "node test/sync.test.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1"
+  }
+}

@@ -1,4 +1,9 @@
-/* The bottom sheet used to create and edit entries. */
+/* The bottom sheet for creating and editing records.
+ *
+ * It knows nothing about feeds or diapers — it renders whatever fields the
+ * feature declares, hands the values back, and lets the feature build the
+ * record. New features get an editor for free.
+ */
 const Sheet = (() => {
   const backdrop = document.getElementById('sheetBackdrop');
   const form = document.getElementById('entryForm');
@@ -6,9 +11,9 @@ const Sheet = (() => {
   const title = document.getElementById('sheetTitle');
   const deleteBtn = document.getElementById('deleteEntry');
 
-  let ctx = null;   // { type, entry, onSave, onDelete }
+  let ctx = null;   // { type, record, onSave, onDelete, onError }
 
-  /* ── local <input type="datetime-local"> plumbing ────────── */
+  /* ── <input type="datetime-local"> plumbing ──────────────── */
   function toInput(ts) {
     const d = new Date(ts);
     const pad = n => String(n).padStart(2, '0');
@@ -22,110 +27,96 @@ const Sheet = (() => {
     return Number.isFinite(ts) ? ts : null;
   }
 
-  /* ── field builders ──────────────────────────────────────── */
-  function segment(name, options, current) {
-    const buttons = options.map(([value, label]) =>
-      `<button type="button" data-seg="${name}" data-value="${value}"
-               class="${value === current ? 'is-on' : ''}">${label}</button>`
-    ).join('');
-    return `<div class="seg" data-seg-group="${name}">${buttons}</div>
-            <input type="hidden" name="${name}" value="${current}">`;
-  }
-
-  function timeField(name, label, ts) {
-    return `<label class="field"><span>${label}</span>
-      <input type="datetime-local" name="${name}" value="${ts == null ? '' : toInput(ts)}"></label>`;
-  }
-
-  function noteField(note) {
-    return `<label class="field"><span>Note (optional)</span>
-      <textarea name="note" rows="2" placeholder="Anything worth remembering">${escapeHtml(note || '')}</textarea></label>`;
-  }
-
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  /* ── per-type forms ──────────────────────────────────────── */
-  function render(type, entry) {
-    const units = Store.settings().units;
-    const now = Date.now();
-    const start = entry ? entry.start : now;
-
-    if (type === 'feed') {
-      const method = entry?.method || 'bottle';
-      const amountVal = entry?.amount != null ? Fmt.fromMl(entry.amount, units) : '';
-      const mins = entry?.end ? Math.round((entry.end - entry.start) / Fmt.MIN) : '';
-      return `
-        ${segment('method', [['bottle', 'Bottle'], ['left', 'Left'], ['right', 'Right'], ['solids', 'Solids']], method)}
-        <div class="row-2" style="margin-top:14px">
-          <label class="field"><span>Amount (${units})</span>
-            <input type="number" name="amount" inputmode="decimal" min="0" step="any"
-                   placeholder="—" value="${amountVal}"></label>
-          <label class="field"><span>Duration (min)</span>
-            <input type="number" name="minutes" inputmode="numeric" min="0" step="1"
-                   placeholder="—" value="${mins}"></label>
-        </div>
-        <p class="hint">Fill in whichever you track — both are optional.</p>
-        ${timeField('start', 'Time', start)}
-        ${noteField(entry?.note)}`;
-    }
-
-    if (type === 'diaper') {
-      const kind = entry?.kind || 'wet';
-      return `
-        ${segment('kind', [['wet', 'Wet'], ['dirty', 'Dirty'], ['both', 'Both']], kind)}
-        <div style="height:14px"></div>
-        ${timeField('start', 'Time', start)}
-        ${noteField(entry?.note)}`;
-    }
-
-    // sleep
-    return `
-      ${timeField('start', 'Fell asleep', start)}
-      ${timeField('end', 'Woke up', entry?.end ?? null)}
-      <p class="hint">Leave “woke up” empty while ${Store.settings().name || 'baby'} is still asleep.</p>
-      ${noteField(entry?.note)}`;
+  /* ── rendering a declared field ──────────────────────────── */
+  function label(field, settings) {
+    if (field.unit === 'volume') return `${field.label} (${settings.units})`;
+    return field.label;
   }
 
-  /* ── read the form back into an entry patch ──────────────── */
-  function collect(type) {
+  function renderField(field, values, settings) {
+    const value = values[field.name];
+
+    if (field.input === 'hint') {
+      return `<p class="hint">${escapeHtml(field.text)}</p>`;
+    }
+
+    if (field.input === 'segment') {
+      const buttons = field.options.map(([v, l]) =>
+        `<button type="button" data-seg="${field.name}" data-value="${v}"
+                 class="${v === value ? 'is-on' : ''}">${escapeHtml(l)}</button>`).join('');
+      return `<div class="seg">${buttons}</div>
+              <input type="hidden" name="${field.name}" value="${escapeHtml(value ?? '')}">`;
+    }
+
+    if (field.input === 'datetime') {
+      return `<label class="field"><span>${escapeHtml(label(field, settings))}</span>
+        <input type="datetime-local" name="${field.name}"
+               value="${value == null ? '' : toInput(value)}"></label>`;
+    }
+
+    if (field.input === 'number') {
+      return `<label class="field"><span>${escapeHtml(label(field, settings))}</span>
+        <input type="number" name="${field.name}" inputmode="decimal" min="0" step="any"
+               placeholder="—" value="${escapeHtml(value ?? '')}"></label>`;
+    }
+
+    if (field.input === 'textarea') {
+      return `<label class="field"><span>${escapeHtml(label(field, settings))}</span>
+        <textarea name="${field.name}" rows="2"
+                  placeholder="Anything worth remembering">${escapeHtml(value ?? '')}</textarea></label>`;
+    }
+
+    return `<label class="field"><span>${escapeHtml(label(field, settings))}</span>
+      <input type="text" name="${field.name}" value="${escapeHtml(value ?? '')}"></label>`;
+  }
+
+  /** Consecutive fields marked `half` share a row. */
+  function renderFields(spec, values, settings) {
+    const out = [];
+    for (let i = 0; i < spec.length; i++) {
+      if (spec[i].half && spec[i + 1]?.half) {
+        out.push(`<div class="row-2">${renderField(spec[i], values, settings)}` +
+                 `${renderField(spec[i + 1], values, settings)}</div>`);
+        i++;
+      } else {
+        out.push(renderField(spec[i], values, settings));
+      }
+    }
+    return out.join('');
+  }
+
+  /* ── reading the form back ───────────────────────────────── */
+  function collect(feature) {
     const data = new FormData(form);
-    const units = Store.settings().units;
-    const start = fromInput(data.get('start')) ?? Date.now();
-    const note = (data.get('note') || '').toString().trim();
-
-    if (type === 'feed') {
-      const minutes = Number(data.get('minutes'));
-      return {
-        type: 'feed',
-        method: data.get('method') || 'bottle',
-        amount: Fmt.toMl(data.get('amount'), units),
-        start,
-        end: Number.isFinite(minutes) && minutes > 0 ? start + minutes * Fmt.MIN : null,
-        note,
-      };
+    const values = {};
+    for (const field of feature.fields) {
+      if (!field.name) continue;
+      const raw = data.get(field.name);
+      values[field.name] = field.input === 'datetime'
+        ? fromInput(raw)
+        : (raw ?? '').toString().trim();
     }
-
-    if (type === 'diaper') {
-      return { type: 'diaper', kind: data.get('kind') || 'wet', start, end: null, note };
-    }
-
-    let end = fromInput(data.get('end'));
-    if (end != null && end < start) return { error: 'Wake-up time is before the sleep started.' };
-    return { type: 'sleep', start, end, note };
+    if (values.at == null) values.at = Date.now();
+    return values;
   }
 
   /* ── open / close ────────────────────────────────────────── */
   function open(options) {
     ctx = options;
-    const { type, entry } = options;
-    const verb = entry ? 'Edit' : 'Log';
-    const nouns = { feed: 'feed', diaper: 'diaper change', sleep: 'sleep' };
-    title.textContent = `${verb} ${nouns[type]}`;
-    fields.innerHTML = render(type, entry);
-    deleteBtn.hidden = !entry;
+    const feature = Features.get(options.type);
+    if (!feature) return;
+
+    const settings = Store.settings();
+    const values = feature.toValues(options.record, settings);
+
+    title.textContent = `${options.record ? 'Edit' : 'Log'} ${feature.noun}`;
+    fields.innerHTML = renderFields(feature.fields, values, settings);
+    deleteBtn.hidden = !options.record;
     backdrop.hidden = false;
     document.body.style.overflow = 'hidden';
   }
@@ -140,23 +131,24 @@ const Sheet = (() => {
   fields.addEventListener('click', e => {
     const btn = e.target.closest('[data-seg]');
     if (!btn) return;
-    const group = btn.parentElement;
-    group.querySelectorAll('button').forEach(b => b.classList.toggle('is-on', b === btn));
+    btn.parentElement.querySelectorAll('button')
+      .forEach(b => b.classList.toggle('is-on', b === btn));
     form.elements[btn.dataset.seg].value = btn.dataset.value;
   });
 
   form.addEventListener('submit', e => {
     e.preventDefault();
     if (!ctx) return;
-    const result = collect(ctx.type);
-    if (result.error) { ctx.onError?.(result.error); return; }
-    const saved = ctx.onSave(result, ctx.entry);
-    if (saved !== false) close();
+    const feature = Features.get(ctx.type);
+    const built = feature.fromValues(collect(feature), Store.settings());
+    if (built.error) { ctx.onError?.(built.error); return; }
+    ctx.onSave({ type: ctx.type, ...built }, ctx.record);
+    close();
   });
 
   deleteBtn.addEventListener('click', () => {
-    if (ctx?.entry && confirm('Delete this entry?')) {
-      ctx.onDelete(ctx.entry);
+    if (ctx?.record && confirm('Delete this entry?')) {
+      ctx.onDelete(ctx.record);
       close();
     }
   });

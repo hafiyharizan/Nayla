@@ -1,4 +1,5 @@
-/* Formatting helpers — durations, clock times, day labels, entry summaries. */
+/* Formatting helpers — durations, clock times, day labels, units.
+ * Pure presentation: knows nothing about feeds, sleeps or records. */
 const Fmt = (() => {
   const MIN = 60000, HOUR = 3600000, DAY = 86400000;
 
@@ -95,39 +96,9 @@ const Fmt = (() => {
 
   function round1(n) { return Math.round(n * 10) / 10; }
 
-  const FEED_METHOD = {
-    bottle: 'Bottle',
-    left: 'Left breast',
-    right: 'Right breast',
-    solids: 'Solids',
-  };
-  const DIAPER_KIND = { wet: 'Wet', dirty: 'Dirty', both: 'Wet + dirty' };
-  const ICON = { feed: '🍼', diaper: '🧷', sleep: '🌙' };
-
-  /** Headline + detail line for an entry row. */
-  function describe(entry, units) {
-    if (entry.type === 'feed') {
-      const bits = [];
-      if (entry.amount != null) bits.push(amount(entry.amount, units));
-      if (entry.end) bits.push(duration(entry.end - entry.start));
-      return { title: FEED_METHOD[entry.method] || 'Feed', detail: bits.join(' · ') };
-    }
-    if (entry.type === 'diaper') {
-      return { title: DIAPER_KIND[entry.kind] || 'Diaper', detail: 'Diaper change' };
-    }
-    const live = entry.end == null;
-    return {
-      title: live ? 'Sleeping' : 'Sleep',
-      detail: live
-        ? `since ${clock(entry.start)}`
-        : `${clock(entry.start)} – ${clock(entry.end)} · ${duration(entry.end - entry.start)}`,
-    };
-  }
-
   return {
     MIN, HOUR, DAY,
     duration, ago, clock, dayKey, dayLabel, age, ageMonths,
-    amount, toMl, fromMl, describe,
-    FEED_METHOD, DIAPER_KIND, ICON,
+    amount, toMl, fromMl,
   };
 })();
