@@ -73,10 +73,15 @@ Follow your baby's cues, and take any concerns to your paediatrician.
 Sync is off by default, and the app is fully usable without it. Turn it on and both
 parents' phones keep the same log — one logs a feed at home, the other sees it at work.
 
-Setup is three fields under **Settings → Sync** and a migration to run once; see
-[`supabase/README.md`](supabase/README.md). It works against hosted Supabase or an
-instance you run yourself, because it only uses plain PostgREST — switching later is a
-URL change.
+Setup is a migration to run once and a few fields under **Settings → Sync**. Two ways
+to host it:
+
+- **Hosted Supabase** — see [`supabase/README.md`](supabase/README.md).
+- **Your own VPS** — Postgres, PostgREST and Caddy on a small box, about $5–7/month.
+  See [`deploy/README.md`](deploy/README.md).
+
+The app is identical either way: it speaks plain PostgREST, so moving between them is
+a URL change and a `pg_dump`.
 
 How it behaves:
 
@@ -118,6 +123,7 @@ js/sheet.js           the add/edit sheet, rendered from a feature's fields
 js/app.js             views, live timers, stats, import/export
 sw.js                 offline caching
 supabase/             the sync backend: one table, two functions
+deploy/               that same backend on a VPS, behind Caddy
 test/                 browser tests (npm test)
 ```
 

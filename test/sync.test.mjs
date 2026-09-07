@@ -264,6 +264,16 @@ async function newPhone(label) {
   ok('unpushed local edit is not clobbered', await dad.page.evaluate(
     () => Store.all().some(r => r.note === 'local edit wins')));
 
+  // self-hosted PostgREST needs no anon key; the pairing code is the secret
+  await dad.page.evaluate(() => Store.saveSettings({ syncKey: '' }));
+  ok('sync stays enabled with no anon key', await dad.page.evaluate(() => Sync.enabled()));
+  await mum.page.click('[data-log="diaper"]');
+  await mum.page.click('#entryForm button[type="submit"]');
+  await mum.page.waitForTimeout(120);
+  await sync(mum.page);
+  await sync(dad.page);
+  ok('keyless client still syncs', (await count(dad.page)) === 5, `${await count(dad.page)}`);
+
   // a wrong pairing code must fail loudly, not silently corrupt
   await dad.page.evaluate(() => Store.saveSettings({ syncCode: 'short' }));
   const st = await dad.page.evaluate(() => Sync.run());

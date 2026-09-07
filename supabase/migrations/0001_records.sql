@@ -16,6 +16,20 @@
 -- cursor with no ties and no dependence on any device's clock, which is what
 -- makes "pull everything since rev N" reliable.
 
+-- Supabase provisions `anon` and `authenticated`; a plain Postgres behind
+-- PostgREST does not. Create them if absent so this file applies unchanged
+-- either place.
+do $$
+begin
+  if not exists (select from pg_roles where rolname = 'anon') then
+    create role anon nologin noinherit;
+  end if;
+  if not exists (select from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin noinherit;
+  end if;
+end
+$$;
+
 create schema if not exists nayla;
 
 create sequence if not exists nayla.records_rev;

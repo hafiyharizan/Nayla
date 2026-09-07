@@ -33,9 +33,12 @@ const Sync = (() => {
     };
   }
 
+  /* A key is only needed where something in front of PostgREST demands one —
+   * Supabase's gateway does, a plain PostgREST using db-anon-role does not.
+   * The key was never the secret here; the pairing code is. */
   function enabled() {
     const c = config();
-    return Boolean(c.url && c.key && c.code);
+    return Boolean(c.url && c.code);
   }
 
   function announce() { listeners.forEach(fn => fn(status())); }
@@ -50,8 +53,7 @@ const Sync = (() => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: c.key,
-        Authorization: `Bearer ${c.key}`,
+        ...(c.key ? { apikey: c.key, Authorization: `Bearer ${c.key}` } : {}),
       },
       body: JSON.stringify(body),
     });
