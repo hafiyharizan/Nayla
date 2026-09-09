@@ -430,8 +430,28 @@
   document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
   if ('serviceWorker' in navigator) {
+    // True only for a returning visitor whose page loaded already under an
+    // earlier service worker. A brand-new visitor has no controller yet at
+    // this point, and controllerchange fires anyway the moment the very
+    // first worker claims the page — which is not an update, and reloading
+    // for it would just be a pointless flicker right as the app opens.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+    });
+
+    // A new service worker taking over means updated code just finished
+    // installing in the background. Reload once so it's actually in use,
+    // instead of leaving stale JS running until the tab next happens to
+    // close and reopen. Skipped while the entry sheet is open, so an update
+    // landing mid-edit can never wipe out something she's in the middle of
+    // typing — she picks it up next time she opens the app instead.
+    let reloadedForUpdate = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloadedForUpdate || !hadController || Sheet.isOpen()) return;
+      reloadedForUpdate = true;
+      location.reload();
     });
   }
 })();

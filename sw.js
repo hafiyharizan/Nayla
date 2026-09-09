@@ -1,6 +1,19 @@
-/* Offline support: cache the shell, serve it from cache, refresh in the
- * background. Entries live in localStorage, so the app works with no network. */
-const CACHE = 'nayla-v1';
+/* Offline support: cache the shell, but always prefer a fresh copy over the
+ * cached one when the network is available.
+ *
+ * This used to be cache-first-with-background-refresh: fast, but it means an
+ * existing visitor keeps seeing whatever was cached on their FIRST visit,
+ * with each visit only quietly updating the cache for "next time" — which
+ * for a one-off feature like the install prompt below never actually
+ * arrives, because nothing tells them to reload twice. Network-first fixes
+ * that outright: online, you always get what's actually deployed; offline,
+ * you fall back to the last good copy, so nothing is lost.
+ *
+ * CACHE is bumped whenever the shell's file list changes, so activate()
+ * actually has something to clean up — the version number itself does no
+ * work beyond giving that comparison something to look at.
+ */
+const CACHE = 'nayla-v2';
 const SHELL = [
   './',
   './index.html',
@@ -35,14 +48,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(hit => {
-      const network = fetch(event.request)
-        .then(res => {
-          if (res.ok) caches.open(CACHE).then(c => c.put(event.request, res.clone()));
-          return res;
-        })
-        .catch(() => hit);
-      return hit || network;
-    })
+    fetch(event.request)
+      .then(res => {
+        if (res.ok) caches.open(CACHE).then(c => c.put(event.request, res.clone()));
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
