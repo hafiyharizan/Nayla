@@ -372,3 +372,77 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001s !important; transition-duration: .001s !important; }
 }
+
+/* ── add to home screen ────────────────────────────────────── */
+.install-banner {
+  position: fixed;
+  left: 12px; right: 12px;
+  bottom: calc(76px + var(--safe-b));
+  z-index: 30;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "icon copy" "actions actions";
+  gap: 4px 12px;
+  align-items: center;
+  max-width: 596px;
+  margin: 0 auto;
+  padding: 14px 16px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 6px rgba(36, 29, 22, .1), 0 14px 40px rgba(36, 29, 22, .16);
+  animation: install-rise .34s cubic-bezier(.2, .8, .3, 1);
+}
+@keyframes install-rise { from { transform: translateY(16px); opacity: 0; } }
+
+.install-banner[hidden] { display: none; }
+
+.install-icon {
+  grid-area: icon;
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  font-size: 21px;
+  background: var(--accent-soft);
+  border-radius: 12px;
+}
+.install-copy { grid-area: copy; display: flex; flex-direction: column; }
+.install-copy strong { font-size: 15px; }
+.install-copy span { font-size: 12.5px; color: var(--text-dim); line-height: 1.35; }
+
+.install-actions {
+  grid-area: actions;
+  display: flex; gap: 8px; justify-content: flex-end;
+  margin-top: 10px;
+}
+.install-actions .btn { min-height: 42px; padding: 0 20px; font-size: 15px; }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
+
+/* the illustrated steps */
+.install-lead { font-size: 15px; margin: 0 0 16px; }
+.install-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.install-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.5; }
+.step-n {
+  flex: 0 0 26px;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  background: var(--accent); color: #fff;
+  border-radius: 50%;
+  font-size: 13px; font-weight: 650;
+  margin-top: 1px;
+}
+@media (prefers-color-scheme: dark) { .step-n { color: #201509; } }
+
+.ios-glyph {
+  width: 1.15em; height: 1.15em;
+  vertical-align: -.22em;
+  margin: 0 2px;
+  stroke: var(--accent);
+  stroke-width: 1.7;
+  fill: none;
+}
+
+.install-foot {
+  font-size: 13px; color: var(--text-dim);
+  margin: 18px 0 0; padding-top: 14px;
+  border-top: 1px solid var(--line);
+}

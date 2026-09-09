@@ -13,6 +13,7 @@ const SHELL = [
   './js/sync.js',
   './js/wake.js',
   './js/sheet.js',
+  './js/install.js',
   './js/app.js',
   './icons/icon.svg',
   './icons/icon-192.png',

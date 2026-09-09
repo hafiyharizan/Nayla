@@ -129,6 +129,13 @@
       <p class="muted" id="dataCount"></p>
     </div>
 
+    <h2 class="section-title">This phone</h2>
+    <div class="card form" id="installRow">
+      <p class="muted">Add Nayla to your Home Screen and it opens like a normal
+        app — full screen, and it still works when there's no signal.</p>
+      <button class="btn" id="installHelp">Show me how</button>
+    </div>
+
     <h2 class="section-title">About</h2>
     <div class="card">
       <p class="muted">Wake-window guidance is a rough age-based range, not medical advice. Every baby is different — follow your baby's cues, and talk to your paediatrician with any concerns.</p>
@@ -142,6 +149,30 @@
   <button class="tab" data-tab="stats"><span>📊</span>Stats</button>
   <button class="tab" data-tab="settings"><span>⚙️</span>Settings</button>
 </nav>
+
+<!-- ───────────────────────── ADD TO HOME SCREEN ───────────────────────── -->
+<div class="install-banner" id="installBanner" hidden>
+  <div class="install-icon">🌙</div>
+  <div class="install-copy">
+    <strong>Keep Nayla on your phone</strong>
+    <span>Opens like an app, and works with no signal</span>
+  </div>
+  <div class="install-actions">
+    <button class="btn btn-ghost" id="installLater">Not now</button>
+    <button class="btn btn-primary" id="installAdd">Add</button>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="installGuide" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
+    <div class="sheet-grab"></div>
+    <header class="sheet-head">
+      <h2 id="installGuideTitle">Add to Home Screen</h2>
+      <button class="icon-btn" id="installGuideClose" aria-label="Close">✕</button>
+    </header>
+    <div class="sheet-body" id="installSteps"></div>
+  </div>
+</div>
 
 <!-- ───────────────────────── ENTRY SHEET ───────────────────────── -->
 <div class="sheet-backdrop" id="sheetBackdrop" hidden>
@@ -170,6 +201,7 @@
 <script src="js/sync.js"></script>
 <script src="js/wake.js"></script>
 <script src="js/sheet.js"></script>
+<script src="js/install.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

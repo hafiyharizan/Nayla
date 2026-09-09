@@ -423,6 +423,7 @@
   Store.onChange(render);
   render();
   Sync.start();
+  Install.start();
 
   // Relative times drift; refresh them steadily, and immediately on return.
   setInterval(() => { if (!Sheet.isOpen()) render(); }, 30000);

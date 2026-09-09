@@ -19,8 +19,13 @@ Opening `index.html` directly works too, but a server is needed for the offline
 service worker and for "Add to Home Screen" to behave like an app.
 
 To use it on a phone, host the folder anywhere static (GitHub Pages, Netlify,
-Vercel, a Raspberry Pi) and open it in the phone's browser → **Add to Home Screen**.
-It then launches full-screen and works with no signal.
+Vercel, a Raspberry Pi) and open it in the phone's browser. The app offers to add
+itself to the Home Screen, so nobody has to know how — on Android that's one tap
+via Chrome's install prompt, and on iPhone it shows illustrated steps for the
+Share menu, since Safari has no install API. It then launches full-screen and
+works with no signal.
+
+Anyone who taps "Not now" can find it again under **Settings → This phone**.
 
 ## What it does
 
