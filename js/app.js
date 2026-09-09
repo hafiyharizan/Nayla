@@ -1,4 +1,9 @@
-/* App wiring: views, live timers, quick logging, stats, settings. */
+/* App wiring: views, live timers, logging, stats, settings, sync UI.
+ *
+ * This file deliberately knows nothing about what a feed or a diaper is —
+ * it renders whatever Features declares. Adding a feature should not need
+ * an edit here.
+ */
 (() => {
   const $ = sel => document.querySelector(sel);
   const RING_CIRCUMFERENCE = 2 * Math.PI * 52;
@@ -31,13 +36,30 @@
     toastTimer = setTimeout(() => { el.hidden = true; }, 2400);
   }
 
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /* ── static chrome built from the registry ───────────────── */
+  function buildChrome() {
+    $('#quickGrid').innerHTML = Features.all().map(f =>
+      `<button class="quick quick-${f.type}" data-log="${f.type}">
+         <span class="quick-icon">${f.icon}</span><span>${f.label}</span>
+       </button>`).join('');
+
+    $('#historyFilters').innerHTML =
+      `<button class="chip is-on" data-filter="all">All</button>` +
+      Features.all().map(f =>
+        `<button class="chip" data-filter="${f.type}">${f.label}s</button>`).join('');
+  }
+
   /* ── NOW view ────────────────────────────────────────────── */
   function renderNow() {
     const settings = Store.settings();
-    const entries = Store.all();
-    const st = Wake.state(entries, Fmt.ageMonths(settings.dob));
+    const records = Store.all();
+    const st = Wake.state(records, Fmt.ageMonths(settings.dob));
 
-    // wake / sleep ring
     const card = $('#wakeCard');
     card.classList.toggle('is-sleeping', st.sleeping);
     card.classList.toggle('is-over', !st.sleeping && st.status === 'over');
@@ -52,91 +74,72 @@
       : Math.min(1, st.ratio ?? 0);
     $('#ringFill').style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - ratio);
 
-    // status row
-    const units = settings.units;
-    const lastFeed = Store.latest('feed');
-    const lastDiaper = Store.latest('diaper');
-    const lastSleep = Store.latest('sleep', { completedOnly: true });
-
-    $('#lastFeed').textContent = lastFeed ? Fmt.ago(lastFeed.start) : '—';
-    $('#lastFeedNote').textContent = lastFeed
-      ? [Fmt.FEED_METHOD[lastFeed.method], Fmt.amount(lastFeed.amount, units)].filter(Boolean).join(' · ')
-      : 'nothing logged';
-
-    $('#lastDiaper').textContent = lastDiaper ? Fmt.ago(lastDiaper.start) : '—';
-    $('#lastDiaperNote').textContent = lastDiaper
-      ? Fmt.DIAPER_KIND[lastDiaper.kind]
-      : 'nothing logged';
-
-    $('#lastSleep').textContent = lastSleep ? Fmt.duration(lastSleep.end - lastSleep.start) : '—';
-    $('#lastSleepNote').textContent = lastSleep
-      ? `ended ${Fmt.clock(lastSleep.end)}`
-      : 'nothing logged';
-
-    renderToday();
-    renderList($('#recentList'), entries.slice(0, 8));
+    renderStatusRow(settings);
+    renderToday(settings);
+    renderList($('#recentList'), records.slice(0, 8), settings);
   }
 
-  function renderToday() {
-    const day = dayTotals(new Date());
-    const units = Store.settings().units;
-    const volume = day.feedMl ? Fmt.amount(day.feedMl, units) : '';
-    $('#todaySummary').innerHTML = `
-      <div class="today-cell"><span>Feeds</span><b>${day.feeds}</b><em>${volume || '&nbsp;'}</em></div>
-      <div class="today-cell"><span>Diapers</span><b>${day.diapers}</b><em>${day.wet} wet · ${day.dirty} dirty</em></div>
-      <div class="today-cell"><span>Sleep</span><b>${Fmt.duration(day.sleepMs)}</b><em>${day.naps} session${day.naps === 1 ? '' : 's'}</em></div>`;
+  function renderStatusRow(settings) {
+    $('#statusRow').innerHTML = Features.all().map(f => {
+      const record = Store.latest(f.type, { completedOnly: Boolean(f.statusCompletedOnly) });
+      return `<button class="stat" data-quick="${f.type}">
+        <span class="stat-icon">${f.icon}</span>
+        <span class="stat-label">${f.statusLabel}</span>
+        <strong class="stat-value">${record ? escapeHtml(f.statusValue(record, settings)) : '—'}</strong>
+        <span class="stat-note">${record ? escapeHtml(f.status(record, settings)) : 'nothing logged'}</span>
+      </button>`;
+    }).join('');
   }
 
-  /** Totals for a local day, splitting sleep that straddles midnight. */
+  function renderToday(settings) {
+    const totals = dayTotals(new Date());
+    $('#todaySummary').innerHTML = Features.all().map(f => {
+      const cell = f.todayCell?.(totals, settings);
+      if (!cell) return '';
+      return `<div class="today-cell">
+        <span>${cell.label}</span><b>${escapeHtml(String(cell.value))}</b>
+        <em>${cell.note ? escapeHtml(cell.note) : '&nbsp;'}</em></div>`;
+    }).join('');
+  }
+
+  /** Totals for a local day. Features that span time count their overlap, so
+   *  a sleep across midnight is credited to both days. */
   function dayTotals(date) {
     const from = new Date(date); from.setHours(0, 0, 0, 0);
     const to = new Date(from); to.setDate(to.getDate() + 1);
-    const a = from.getTime(), b = Math.min(to.getTime(), Date.now());
+    const a = from.getTime(), b = to.getTime();
+    const window = { from: a, to: Math.min(b, Date.now()) };
 
-    const totals = { feeds: 0, feedMl: 0, diapers: 0, wet: 0, dirty: 0, sleepMs: 0, naps: 0 };
-
-    for (const e of Store.forDay(from)) {
-      if (e.type === 'feed' && e.start >= a && e.start < to.getTime()) {
-        totals.feeds++;
-        if (e.amount) totals.feedMl += e.amount;
-      } else if (e.type === 'diaper' && e.start >= a && e.start < to.getTime()) {
-        totals.diapers++;
-        if (e.kind === 'wet' || e.kind === 'both') totals.wet++;
-        if (e.kind === 'dirty' || e.kind === 'both') totals.dirty++;
-      } else if (e.type === 'sleep') {
-        const end = e.end ?? Date.now();
-        const overlap = Math.min(end, b) - Math.max(e.start, a);
-        if (overlap > 0) { totals.sleepMs += overlap; totals.naps++; }
-      }
+    const totals = {};
+    for (const record of Store.forDay(from)) {
+      const feature = Features.get(record.type);
+      if (!feature?.tally) continue;
+      if (!feature.spansTime && !(record.at >= a && record.at < b)) continue;
+      feature.tally(record, totals, window);
     }
     return totals;
   }
 
-  /* ── entry lists ─────────────────────────────────────────── */
-  function renderList(container, entries) {
-    if (!entries.length) {
+  /* ── record lists ────────────────────────────────────────── */
+  function renderList(container, records, settings) {
+    if (!records.length) {
       container.innerHTML = `<li class="empty">Nothing logged yet. Tap a button above to start.</li>`;
       return;
     }
-    const units = Store.settings().units;
-    container.innerHTML = entries.map(e => {
-      const { title, detail } = Fmt.describe(e, units);
-      const live = e.type === 'sleep' && e.end == null;
-      const note = e.note ? ` · ${escapeHtml(e.note)}` : '';
-      return `<li><button class="entry ${live ? 'is-live' : ''}" data-entry="${e.id}">
-        <span class="entry-dot ${e.type}">${Fmt.ICON[e.type]}</span>
+    container.innerHTML = records.map(r => {
+      const feature = Features.get(r.type);
+      const { title, detail } = feature.describe(r, settings);
+      const live = r.type === 'sleep' && r.end == null;
+      const note = r.note ? ` · ${escapeHtml(r.note)}` : '';
+      return `<li><button class="entry ${live ? 'is-live' : ''}" data-entry="${r.id}">
+        <span class="entry-dot ${r.type}">${feature.icon}</span>
         <span class="entry-main">
-          <span class="entry-title">${title}</span>
+          <span class="entry-title">${escapeHtml(title)}</span>
           <span class="entry-sub">${escapeHtml(detail)}${note}</span>
         </span>
-        <span class="entry-time">${live ? Fmt.duration(Date.now() - e.start) : Fmt.clock(e.start)}</span>
+        <span class="entry-time">${live ? Fmt.duration(Date.now() - r.at) : Fmt.clock(r.at)}</span>
       </button></li>`;
     }).join('');
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   /* ── HISTORY view ────────────────────────────────────────── */
@@ -152,39 +155,42 @@
   });
 
   function renderHistory() {
-    const entries = Store.byType(historyFilter);
+    const settings = Store.settings();
+    const records = Store.byType(historyFilter);
     const target = $('#historyList');
-    if (!entries.length) {
+    if (!records.length) {
       target.innerHTML = `<p class="empty">No entries yet.</p>`;
       return;
     }
 
-    // group by local day, newest day first
     const groups = new Map();
-    for (const e of entries) {
-      const key = Fmt.dayKey(e.start);
+    for (const r of records) {
+      const key = Fmt.dayKey(r.at);
       if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(e);
+      groups.get(key).push(r);
     }
 
     target.innerHTML = [...groups.values()].map(group => {
-      const day = dayTotals(new Date(group[0].start));
-      const summary = `${day.feeds} feed${day.feeds === 1 ? '' : 's'} · ` +
-                      `${day.diapers} diaper${day.diapers === 1 ? '' : 's'} · ` +
-                      `${Fmt.duration(day.sleepMs)} sleep`;
+      const totals = dayTotals(new Date(group[0].at));
+      const summary = Features.all()
+        .map(f => f.todayCell?.(totals, settings))
+        .filter(Boolean)
+        .map(c => `${c.value} ${c.label.toLowerCase()}`)
+        .join(' · ');
       return `<div class="day-group">
-        <div class="day-head"><h3>${Fmt.dayLabel(group[0].start)}</h3><span>${summary}</span></div>
-        <ul class="entries" data-day="${Fmt.dayKey(group[0].start)}"></ul>
+        <div class="day-head"><h3>${Fmt.dayLabel(group[0].at)}</h3><span>${escapeHtml(summary)}</span></div>
+        <ul class="entries" data-day="${Fmt.dayKey(group[0].at)}"></ul>
       </div>`;
     }).join('');
 
     [...groups.entries()].forEach(([key, group]) => {
-      renderList(target.querySelector(`[data-day="${key}"]`), group);
+      renderList(target.querySelector(`[data-day="${key}"]`), group, settings);
     });
   }
 
   /* ── STATS view ──────────────────────────────────────────── */
   function renderStats() {
+    const settings = Store.settings();
     const days = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
@@ -192,18 +198,19 @@
       days.push({ date: d, ...dayTotals(d) });
     }
 
-    const units = Store.settings().units;
-    const hasData = days.some(d => d.feeds || d.diapers || d.sleepMs);
-    if (!hasData) {
+    if (!days.some(d => d.feeds || d.diapers || d.sleepMs)) {
       $('#statsBody').innerHTML = `<p class="empty">Log a few days and trends will show up here.</p>`;
       return;
     }
 
     $('#statsBody').innerHTML = [
-      block('Sleep per day', days, 'sleep', d => d.sleepMs, ms => Fmt.duration(ms)),
-      block('Feeds per day', days, 'feed', d => d.feeds, n => `${n}`),
-      block('Diapers per day', days, 'diaper', d => d.diapers, n => `${n}`),
-      volumeBlock(days, units),
+      block('Sleep per day', days, 'sleep', d => d.sleepMs || 0, ms => Fmt.duration(ms)),
+      block('Feeds per day', days, 'feed', d => d.feeds || 0, n => `${n}`),
+      block('Diapers per day', days, 'diaper', d => d.diapers || 0, n => `${n}`),
+      days.some(d => d.feedMl)
+        ? block('Bottle volume per day', days, 'feed', d => d.feedMl || 0,
+                ml => Fmt.amount(ml, settings.units))
+        : '',
     ].filter(Boolean).join('');
   }
 
@@ -221,12 +228,6 @@
       <p class="avg">7-day average: ${label(Math.round(avg))}</p></div>`;
   }
 
-  function volumeBlock(days, units) {
-    if (!days.some(d => d.feedMl)) return '';
-    return block('Bottle volume per day', days, 'feed', d => d.feedMl,
-      ml => Fmt.amount(ml, units));
-  }
-
   function shortDay(date) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const d = new Date(date); d.setHours(0, 0, 0, 0);
@@ -235,22 +236,14 @@
   }
 
   /* ── logging actions ─────────────────────────────────────── */
-  function openSheet(type, entry) {
+  function openSheet(type, record) {
     Sheet.open({
-      type, entry,
-      onSave(data, existing) {
-        if (existing) {
-          Store.update(existing.id, data);
-          toast('Updated');
-        } else {
-          Store.add(data);
-          toast('Saved');
-        }
+      type, record,
+      onSave(fields, existing) {
+        if (existing) { Store.update(existing.id, fields); toast('Updated'); }
+        else { Store.add(fields); toast('Saved'); }
       },
-      onDelete(existing) {
-        Store.remove(existing.id);
-        toast('Deleted');
-      },
+      onDelete(existing) { Store.remove(existing.id); toast('Deleted'); },
       onError(message) { toast(message); },
     });
   }
@@ -261,18 +254,15 @@
 
     const quick = e.target.closest('[data-quick]');
     if (quick) {
-      const type = quick.dataset.quick;
-      const last = type === 'sleep'
-        ? Store.latest('sleep')
-        : Store.latest(type);
-      openSheet(type, last || undefined);
+      const last = Store.latest(quick.dataset.quick);
+      openSheet(quick.dataset.quick, last || undefined);
       return;
     }
 
     const entryBtn = e.target.closest('[data-entry]');
     if (entryBtn) {
-      const entry = Store.get(entryBtn.dataset.entry);
-      if (entry) openSheet(entry.type, entry);
+      const record = Store.get(entryBtn.dataset.entry);
+      if (record) openSheet(record.type, record);
     }
   });
 
@@ -280,9 +270,9 @@
     const active = Store.activeSleep();
     if (active) {
       Store.update(active.id, { end: Date.now() });
-      toast(`Slept ${Fmt.duration(Date.now() - active.start)}`);
+      toast(`Slept ${Fmt.duration(Date.now() - active.at)}`);
     } else {
-      Store.add({ type: 'sleep', start: Date.now(), end: null });
+      Store.add({ type: 'sleep', at: Date.now(), end: null, data: {} });
       toast('Sleep started');
     }
   });
@@ -290,17 +280,67 @@
   /* ── SETTINGS view ───────────────────────────────────────── */
   function renderSettings() {
     const s = Store.settings();
-    $('#setName').value = s.name;
-    $('#setDob').value = s.dob;
-    $('#setUnits').value = s.units;
+    setIfIdle($('#setName'), s.name);
+    setIfIdle($('#setDob'), s.dob);
+    setIfIdle($('#setUnits'), s.units);
+    setIfIdle($('#setSyncUrl'), s.syncUrl);
+    setIfIdle($('#setSyncKey'), s.syncKey);
+    setIfIdle($('#setSyncCode'), s.syncCode);
+
     const n = Store.all().length;
-    $('#dataCount').textContent = `${n} entr${n === 1 ? 'y' : 'ies'} stored on this device.`;
+    $('#dataCount').textContent = `${n} entr${n === 1 ? 'y' : 'ies'} in the log.`;
+    $('#dataScope').textContent = Sync.enabled()
+      ? 'Entries are kept on this device and synced to your server. Export a backup anyway — this app should never be the only copy.'
+      : 'Everything is stored on this device only. Nothing is uploaded anywhere.';
+    renderSyncStatus();
+  }
+
+  /** Never overwrite a field the user is currently typing in. */
+  function setIfIdle(el, value) {
+    if (el && document.activeElement !== el) el.value = value ?? '';
+  }
+
+  function renderSyncStatus() {
+    const st = Sync.status();
+    const el = $('#syncStatus');
+    if (!el) return;
+    if (!st.enabled) el.textContent = 'Sync is off — the log stays on this device.';
+    else if (st.busy) el.textContent = 'Syncing…';
+    else if (st.error) el.textContent = `Last sync failed: ${st.error}`;
+    else if (st.lastSyncedAt) el.textContent = `Synced ${Fmt.ago(st.lastSyncedAt)}.`;
+    else el.textContent = 'Sync is on — waiting for the first run.';
   }
 
   $('#setName').addEventListener('input', e => Store.saveSettings({ name: e.target.value.trim() }));
   $('#setDob').addEventListener('change', e => Store.saveSettings({ dob: e.target.value }));
   $('#setUnits').addEventListener('change', e => Store.saveSettings({ units: e.target.value }));
 
+  // Changing where we sync to invalidates the pull cursor — start over.
+  $('#setSyncUrl').addEventListener('change', e =>
+    Store.saveSettings({ syncUrl: e.target.value.trim(), lastPulledAt: 0 }));
+  $('#setSyncKey').addEventListener('change', e =>
+    Store.saveSettings({ syncKey: e.target.value.trim() }));
+  $('#setSyncCode').addEventListener('change', e =>
+    Store.saveSettings({ syncCode: e.target.value.trim(), lastPulledAt: 0 }));
+
+  $('#genCode').addEventListener('click', () => {
+    if (Store.settings().syncCode &&
+        !confirm('Replace the current pairing code? The other phone will stop syncing until you give it the new one.')) return;
+    const code = Sync.newPairingCode();
+    Store.saveSettings({ syncCode: code, lastPulledAt: 0 });
+    $('#setSyncCode').value = code;
+    toast('New pairing code');
+  });
+
+  $('#syncNow').addEventListener('click', async () => {
+    if (!Sync.enabled()) { toast('Fill in all three sync fields first.'); return; }
+    const st = await Sync.run();
+    toast(st.error ? st.error : 'Synced');
+  });
+
+  Sync.onChange(() => { if (currentView === 'settings') renderSyncStatus(); });
+
+  /* ── backup / restore ────────────────────────────────────── */
   function download(filename, text, mime) {
     const url = URL.createObjectURL(new Blob([text], { type: mime }));
     const a = document.createElement('a');
@@ -310,9 +350,7 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function stamp() {
-    return new Date().toISOString().slice(0, 10);
-  }
+  const stamp = () => new Date().toISOString().slice(0, 10);
 
   $('#exportJson').addEventListener('click', () => {
     download(`nayla-backup-${stamp()}.json`,
@@ -320,24 +358,22 @@
   });
 
   $('#exportCsv').addEventListener('click', () => {
-    const units = Store.settings().units;
-    const rows = [['type', 'start', 'end', 'duration_min', 'detail', `amount_${units}`, 'note']];
-    for (const e of [...Store.all()].reverse()) {
-      const detail = e.type === 'feed' ? (Fmt.FEED_METHOD[e.method] || '')
-                   : e.type === 'diaper' ? (Fmt.DIAPER_KIND[e.kind] || '')
-                   : '';
+    const settings = Store.settings();
+    const rows = [['type', 'start', 'end', 'duration_min', 'detail', `amount_${settings.units}`, 'note']];
+    for (const r of [...Store.all()].reverse()) {
+      const feature = Features.get(r.type);
       rows.push([
-        e.type,
-        new Date(e.start).toISOString(),
-        e.end ? new Date(e.end).toISOString() : '',
-        e.end ? Math.round((e.end - e.start) / Fmt.MIN) : '',
-        detail,
-        e.amount != null ? Fmt.fromMl(e.amount, units) : '',
-        e.note || '',
+        r.type,
+        new Date(r.at).toISOString(),
+        r.end ? new Date(r.end).toISOString() : '',
+        r.end ? Math.round((r.end - r.at) / Fmt.MIN) : '',
+        feature.describe(r, settings).title,
+        r.data.amount != null ? Fmt.fromMl(r.data.amount, settings.units) : '',
+        r.note || '',
       ]);
     }
-    const csv = rows.map(r => r.map(csvCell).join(',')).join('\n');
-    download(`nayla-log-${stamp()}.csv`, csv, 'text/csv');
+    download(`nayla-log-${stamp()}.csv`,
+      rows.map(r => r.map(csvCell).join(',')).join('\n'), 'text/csv');
   });
 
   function csvCell(value) {
@@ -352,8 +388,8 @@
     if (!file) return;
     try {
       const data = JSON.parse(await file.text());
-      const incoming = Array.isArray(data) ? data : data.entries;
-      if (!Array.isArray(incoming)) throw new Error('no entries in file');
+      const incoming = Array.isArray(data) ? data : (data.records || data.entries);
+      if (!Array.isArray(incoming)) throw new Error('no records in file');
       if (!confirm(`Replace the current log with ${incoming.length} imported entries?`)) return;
       Store.replaceAll(incoming, Array.isArray(data) ? null : data.settings);
       toast('Backup restored');
@@ -383,8 +419,10 @@
     else if (currentView === 'settings') renderSettings();
   }
 
+  buildChrome();
   Store.onChange(render);
   render();
+  Sync.start();
 
   // Relative times drift; refresh them steadily, and immediately on return.
   setInterval(() => { if (!Sheet.isOpen()) render(); }, 30000);

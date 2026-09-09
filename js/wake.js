@@ -30,21 +30,21 @@ const Wake = (() => {
    *   ratio     — progress through the recommended window, 0..1+ (null without a range)
    *   status    — 'early' | 'due' | 'over' | null
    */
-  function state(entries, ageMonths) {
-    const active = entries.find(e => e.type === 'sleep' && e.end == null);
+  function state(records, ageMonths) {
+    const active = records.find(r => r.type === 'sleep' && r.end == null);
     const range = rangeFor(ageMonths);
 
     if (active) {
       return {
         sleeping: true,
-        since: active.start,
-        elapsedMs: Date.now() - active.start,
+        since: active.at,
+        elapsedMs: Date.now() - active.at,
         range, ratio: null, status: null,
         entry: active,
       };
     }
 
-    const lastSleep = entries.find(e => e.type === 'sleep' && e.end != null);
+    const lastSleep = records.find(r => r.type === 'sleep' && r.end != null);
     const since = lastSleep ? lastSleep.end : null;
     const elapsedMs = since ? Date.now() - since : null;
 

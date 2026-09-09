@@ -1,0 +1,28 @@
+# TLS certificates are obtained and renewed automatically, provided DOMAIN
+# resolves to this machine and ports 80/443 are open.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# The app calls /rest/v1/rpc/<fn>, which is the path Supabase's gateway
+	# uses. Stripping the prefix here means the client is byte-identical
+	# whether it points at Supabase or at this box.
+	@sync path /rest/v1/rpc/nayla_sync_push /rest/v1/rpc/nayla_sync_pull
+	handle @sync {
+		uri strip_prefix /rest/v1
+		reverse_proxy api:3000
+	}
+
+	# Everything else — PostgREST's table routes included — is not on the
+	# internet at all.
+	handle {
+		respond "not found" 404
+	}
+}
