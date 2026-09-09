@@ -65,6 +65,7 @@ create or replace function nayla.assert_code(p_code text)
 returns void
 language plpgsql
 immutable
+set search_path = pg_catalog
 as $$
 begin
   if p_code is null or length(p_code) < 24 then

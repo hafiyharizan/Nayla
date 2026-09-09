@@ -22,16 +22,25 @@ instance.
 
 ## Hosted Supabase
 
+The `Nayla` project is already set up and the migration applied, and
+`js/config.js` carries its URL and anon key. So on each phone there is exactly
+one thing to do:
+
+**Settings → Sync → New code** on the first phone, then type that same code into
+the second phone's **Pairing code** field. Leave Server URL and Anon key alone.
+
+Both phones then share one log. To check it worked, log something on one and
+watch it appear on the other within a minute (or tap **Sync now**).
+
+### Setting up a different project from scratch
+
 1. Create a project (the free tier is ample — the log is kilobytes).
 2. Run `migrations/0001_records.sql` in the SQL editor, or
    `supabase db push` if you use the CLI.
 3. In the app: **Settings → Sync**, and fill in
    - **Server URL** — `https://<project-ref>.supabase.co`
    - **Anon key** — Project Settings → API → anon/public key
-   - **Pairing code** — tap **New code** on the first phone, then type the same
-     code into the second.
-
-That's it. Both phones now share one log.
+   - **Pairing code** — as above.
 
 ## Self-hosted
 
@@ -61,6 +70,15 @@ behind that as a second line. The only way in is `nayla_sync_push` /
 `nayla_sync_pull`, which are `security definer` and demand the pairing code.
 This matters because the anon key ships inside the app and is public by design;
 on its own it gets you nothing.
+
+**The anon key is not a secret, and is committed.** Supabase designs it to ship
+in client-side code, and here it opens nothing on its own: both functions demand
+the pairing code before they touch a row, and every other table in the project
+has RLS enabled with no policies, which denies everything. The one real cost of
+publishing it is that strangers can make requests that count against the
+project's quota — not a concern at this scale, but the reason it lives in
+`js/config.js` where it can be pulled back out into per-device settings if you
+ever want it private.
 
 **The pairing code is a bearer secret.** Anyone holding it can read and write
 that household's log. It's 128 bits of randomness, so guessing is out, but treat
