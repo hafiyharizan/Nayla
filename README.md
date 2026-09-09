@@ -138,6 +138,28 @@ feed is.
 
 Sync in particular is type-agnostic, so a new feature arrives already syncing.
 
+## Importing an existing log
+
+If you tracked feeds in a WhatsApp group before this app existed,
+`tools/import-whatsapp.py` reads an exported chat and produces a backup file
+you can load with **Settings → Data → Import**:
+
+```sh
+python3 tools/import-whatsapp.py _chat.txt -o nayla-import.json
+```
+
+It understands the shorthand two tired parents actually use — `7.30 pm - nappy
+change`, `10.15 pm feed 100ml`, bare `🍼 130 mls`, `💤` and `🌅`, Malay
+(`berak`, `bangun`), amounts arriving in a later message (`^100ml`, `+ 80 mls`),
+and times written after the fact. It pairs each `💤` with the wake that follows
+it, and where no wake was written down it closes the sleep at the next entry and
+says so in that record's note.
+
+It prints a report of everything it could not read, so nothing disappears
+silently, and it never invents a value it did not see: a feed logged without an
+amount stays without one. Read the report before importing — **Import replaces
+the whole log**, so export a backup first if you already have entries.
+
 ## Tests
 
 ```sh
