@@ -154,6 +154,8 @@ const Sync = (() => {
 
   return {
     start, run, status, enabled, newPairingCode,
+    /** What sync is actually using, after config.js fallbacks. */
+    effective: config,
     onChange(fn) { listeners.add(fn); },
   };
 })();

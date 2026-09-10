@@ -28,6 +28,20 @@ user agents, because the platforms diverge:
 It also covers dismissal persisting, Settings still offering it afterwards, and
 an already-installed app never nagging.
 
+`pair.test.mjs` runs the two-phone pairing flow against a mock backend: one
+phone generates a code and renders a QR, the other opens the link and ends up
+configured and synced with nothing typed. It also covers the secret being
+stripped from the address bar and a malformed link being ignored.
+
+`qr.test.mjs` round-trips the QR encoder: encode, render to an image, and
+decode with zxing — the same engine behind most phone cameras. It sweeps
+versions 1-10 and both sides of every version boundary, which is where a
+padding bug hid during development. Byte-comparing against another encoder is
+deliberately not the test; the spec permits legal variation (error-correction
+boosting, final-codeword padding, mask tie-breaks) and reference encoders
+disagree with each other as readily as with us. Needs
+`pip install zxing-cpp pillow`; skipped with a message if absent.
+
 Set `PW_CHROMIUM` to a browser path if Playwright shouldn't download its own.
 
 The mock mirrors `supabase/migrations/0001_records.sql`; if you change the SQL,

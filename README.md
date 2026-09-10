@@ -75,6 +75,25 @@ Follow your baby's cues, and take any concerns to your paediatrician.
 
 ## Sharing one log between two phones
 
+Setup is one scan. On the first phone, **Settings → Sync → Start sharing this
+log** shows a QR code; point the second phone's camera at it and tap the link
+that appears. That's the whole thing — the second phone configures itself and
+pulls the history down immediately.
+
+The pairing code rides in the URL's `#fragment`, which browsers never send to
+the server, so the secret stays between the two phones even though the page
+itself is public. It's stripped from the address bar the moment it's used, so
+it doesn't linger in history or in a screenshot. Anyone apart can use **Send the
+link instead**, with the obvious caveat that whoever receives it can read and
+write the log.
+
+After that, entries appear on the other phone on their own: each phone syncs
+when it's opened, when it comes back to the foreground, a couple of seconds
+after anything is logged, and once a minute while it's open.
+
+### How it works
+
+
 Sync is off by default, and the app is fully usable without it. Turn it on and both
 parents' phones keep the same log — one logs a feed at home, the other sees it at work.
 
@@ -123,6 +142,8 @@ js/format.js          durations, clock times, day labels, ml/oz
 js/features.js        the feature registry — what a feed, diaper or sleep IS
 js/store.js           records + settings, persisted to localStorage
 js/sync.js            push/pull/merge against the backend
+js/qr.js              a small QR encoder, for the pairing code
+js/pair.js            pairing by scan or link
 js/wake.js            wake-window ranges and current awake/asleep state
 js/sheet.js           the add/edit sheet, rendered from a feature's fields
 js/app.js             views, live timers, stats, import/export

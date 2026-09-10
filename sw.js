@@ -26,6 +26,8 @@ const SHELL = [
   './js/sync.js',
   './js/wake.js',
   './js/sheet.js',
+  './js/qr.js',
+  './js/pair.js',
   './js/install.js',
   './js/app.js',
   './icons/icon.svg',

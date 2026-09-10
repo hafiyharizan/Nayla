@@ -446,3 +446,62 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   margin: 18px 0 0; padding-top: 14px;
   border-top: 1px solid var(--line);
 }
+
+/* ── sync status + pairing ─────────────────────────────────── */
+.sync-state {
+  font-size: 14px;
+  margin: 0 0 14px;
+  padding-left: 18px;
+  position: relative;
+  color: var(--text-dim);
+}
+.sync-state::before {
+  content: '';
+  position: absolute;
+  left: 0; top: .45em;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  opacity: .45;
+}
+.sync-state.is-on { color: var(--text); }
+.sync-state.is-on::before { background: var(--diaper); opacity: 1; }
+.sync-state.is-bad { color: var(--danger); }
+.sync-state.is-bad::before { background: var(--danger); opacity: 1; }
+
+#pairBtn { width: 100%; }
+#syncHint { margin: 12px 0 0; }
+
+.advanced { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+.advanced > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-dim);
+  list-style: none;
+  padding: 4px 0;
+}
+.advanced > summary::-webkit-details-marker { display: none; }
+.advanced > summary::before { content: '▸ '; }
+.advanced[open] > summary::before { content: '▾ '; }
+.advanced > *:not(summary) { margin-top: 14px; }
+
+.pair-qr {
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: #fff;
+  border-radius: var(--radius);
+  margin: 4px 0 12px;
+}
+.pair-qr svg { display: block; width: 100%; max-width: 240px; height: auto; }
+
+.pair-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  letter-spacing: .04em;
+  color: var(--text-dim);
+  text-align: center;
+  word-break: break-all;
+  margin: 0 0 16px;
+}
+#pairShare { width: 100%; }

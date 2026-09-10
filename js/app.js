@@ -283,9 +283,12 @@
     setIfIdle($('#setName'), s.name);
     setIfIdle($('#setDob'), s.dob);
     setIfIdle($('#setUnits'), s.units);
-    setIfIdle($('#setSyncUrl'), s.syncUrl);
-    setIfIdle($('#setSyncKey'), s.syncKey);
-    setIfIdle($('#setSyncCode'), s.syncCode);
+    // Show what sync is really using. These fall back to config.js, so
+    // displaying only the stored override made a working setup look blank.
+    const effective = Sync.effective();
+    setIfIdle($('#setSyncUrl'), effective.url);
+    setIfIdle($('#setSyncKey'), effective.key);
+    setIfIdle($('#setSyncCode'), effective.code);
 
     const n = Store.all().length;
     $('#dataCount').textContent = `${n} entr${n === 1 ? 'y' : 'ies'} in the log.`;
@@ -304,11 +307,18 @@
     const st = Sync.status();
     const el = $('#syncStatus');
     if (!el) return;
-    if (!st.enabled) el.textContent = 'Sync is off — the log stays on this device.';
+
+    el.classList.toggle('is-on', st.enabled && !st.error);
+    el.classList.toggle('is-bad', Boolean(st.error));
+
+    if (!st.enabled) el.textContent = 'Not paired yet — this log stays on this phone.';
+    else if (st.error) el.textContent = `Can't sync right now: ${st.error}`;
     else if (st.busy) el.textContent = 'Syncing…';
-    else if (st.error) el.textContent = `Last sync failed: ${st.error}`;
-    else if (st.lastSyncedAt) el.textContent = `Synced ${Fmt.ago(st.lastSyncedAt)}.`;
-    else el.textContent = 'Sync is on — waiting for the first run.';
+    else if (st.lastSyncedAt) el.textContent = `Up to date · checked ${Fmt.ago(st.lastSyncedAt)}`;
+    else el.textContent = 'Paired — first sync on its way.';
+
+    $('#pairBtn').textContent = Store.settings().syncCode
+      ? 'Pair the other phone' : 'Start sharing this log';
   }
 
   $('#setName').addEventListener('input', e => Store.saveSettings({ name: e.target.value.trim() }));
@@ -322,6 +332,26 @@
     Store.saveSettings({ syncKey: e.target.value.trim() }));
   $('#setSyncCode').addEventListener('change', e =>
     Store.saveSettings({ syncCode: e.target.value.trim(), lastPulledAt: 0 }));
+
+  $('#pairBtn').addEventListener('click', () => {
+    // First tap on a fresh phone: make a code, then show it.
+    if (!Store.settings().syncCode) {
+      Store.saveSettings({ syncCode: Sync.newPairingCode(), lastPulledAt: 0 });
+    }
+    const res = Pair.open();
+    if (res.error) toast(res.error);
+  });
+
+  $('#pairClose').addEventListener('click', Pair.close);
+  $('#pairSheet').addEventListener('click', e => {
+    if (e.target.id === 'pairSheet') Pair.close();
+  });
+
+  $('#pairShare').addEventListener('click', async () => {
+    const how = await Pair.share();
+    if (how === 'copied') toast('Link copied — paste it to her');
+    else if (how === 'failed') toast("Couldn't share the link on this browser.");
+  });
 
   $('#genCode').addEventListener('click', () => {
     if (Store.settings().syncCode &&
@@ -420,10 +450,36 @@
   }
 
   buildChrome();
+
+  // Opened from a pairing link: adopt the code before the first render, so
+  // she never sees an unpaired screen that then changes under her.
+  const invited = Pair.claimFromUrl();
+  if (invited && invited !== Store.settings().syncCode) {
+    Store.saveSettings({ syncCode: invited, lastPulledAt: 0 });
+  }
+
   Store.onChange(render);
   render();
   Sync.start();
   Install.start();
+
+  if (invited) {
+    toast('Paired — getting the latest entries');
+    Sync.run();
+  }
+
+  // Tapping a pairing link while the app is ALREADY open changes only the
+  // fragment, which is not a page load — app startup never runs, and without
+  // this the link would appear to do nothing at all.
+  window.addEventListener('hashchange', () => {
+    const code = Pair.claimFromUrl();
+    if (!code) return;
+    if (code !== Store.settings().syncCode) {
+      Store.saveSettings({ syncCode: code, lastPulledAt: 0 });
+    }
+    toast('Paired — getting the latest entries');
+    Sync.run();
+  });
 
   // Relative times drift; refresh them steadily, and immediately on return.
   setInterval(() => { if (!Sheet.isOpen()) render(); }, 30000);

@@ -89,29 +89,35 @@
 
     <h2 class="section-title">Sync</h2>
     <div class="card form">
-      <p class="muted" id="syncStatus">Sync is off — the log stays on this device.</p>
-      <label class="field">
-        <span>Server URL</span>
-        <input type="url" id="setSyncUrl" autocomplete="off" autocapitalize="off"
-               spellcheck="false" placeholder="https://your-project.supabase.co">
-      </label>
-      <label class="field">
-        <span>Anon key <em>(Supabase only)</em></span>
-        <input type="text" id="setSyncKey" autocomplete="off" autocapitalize="off"
-               spellcheck="false" placeholder="leave empty when self-hosting">
-      </label>
-      <label class="field">
-        <span>Pairing code</span>
-        <input type="text" id="setSyncCode" autocomplete="off" autocapitalize="off"
-               spellcheck="false" placeholder="shared secret">
-      </label>
-      <div class="btn-row">
-        <button class="btn" id="genCode">New code</button>
-        <button class="btn" id="syncNow">Sync now</button>
-      </div>
-      <p class="muted">Put the same three values on both phones and they share one log.
-        The pairing code is the secret that unlocks it — anyone who has it can read
-        and write everything, so share it directly, and keep it out of backups.</p>
+      <p class="sync-state" id="syncStatus">Sync is off — the log stays on this device.</p>
+      <button class="btn btn-primary" id="pairBtn">Pair the other phone</button>
+      <p class="muted" id="syncHint">Scan one code and both phones share the same log,
+        updating on their own.</p>
+
+      <details class="advanced">
+        <summary>Advanced</summary>
+        <label class="field">
+          <span>Server URL</span>
+          <input type="url" id="setSyncUrl" autocomplete="off" autocapitalize="off"
+                 spellcheck="false" placeholder="https://your-project.supabase.co">
+        </label>
+        <label class="field">
+          <span>Anon key <em>(Supabase only)</em></span>
+          <input type="text" id="setSyncKey" autocomplete="off" autocapitalize="off"
+                 spellcheck="false" placeholder="leave empty when self-hosting">
+        </label>
+        <label class="field">
+          <span>Pairing code</span>
+          <input type="text" id="setSyncCode" autocomplete="off" autocapitalize="off"
+                 spellcheck="false" placeholder="shared secret">
+        </label>
+        <div class="btn-row">
+          <button class="btn" id="genCode">New code</button>
+          <button class="btn" id="syncNow">Sync now</button>
+        </div>
+        <p class="muted">The pairing code is the secret that unlocks the log — anyone who
+          has it can read and write everything.</p>
+      </details>
     </div>
 
     <h2 class="section-title">Data</h2>
@@ -149,6 +155,26 @@
   <button class="tab" data-tab="stats"><span>📊</span>Stats</button>
   <button class="tab" data-tab="settings"><span>⚙️</span>Settings</button>
 </nav>
+
+<!-- ───────────────────────── PAIRING ───────────────────────── -->
+<div class="sheet-backdrop" id="pairSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pairTitle">
+    <div class="sheet-grab"></div>
+    <header class="sheet-head">
+      <h2 id="pairTitle">Pair the other phone</h2>
+      <button class="icon-btn" id="pairClose" aria-label="Close">✕</button>
+    </header>
+    <div class="sheet-body">
+      <p class="install-lead">Open the camera on the other phone and point it at this.
+        Tap the link that pops up — that's it, both phones then share one log.</p>
+      <div class="pair-qr" id="pairQr"></div>
+      <p class="pair-code" id="pairCode"></p>
+      <button class="btn" id="pairShare">Send the link instead</button>
+      <p class="install-foot">Anyone who gets this link can read and write Nayla's log,
+        so scan it in person where you can, rather than posting it in a group chat.</p>
+    </div>
+  </div>
+</div>
 
 <!-- ───────────────────────── ADD TO HOME SCREEN ───────────────────────── -->
 <div class="install-banner" id="installBanner" hidden>
@@ -201,6 +227,8 @@
 <script src="js/sync.js"></script>
 <script src="js/wake.js"></script>
 <script src="js/sheet.js"></script>
+<script src="js/qr.js"></script>
+<script src="js/pair.js"></script>
 <script src="js/install.js"></script>
 <script src="js/app.js"></script>
 </body>
