@@ -420,7 +420,9 @@
       const data = JSON.parse(await file.text());
       const incoming = Array.isArray(data) ? data : (data.records || data.entries);
       if (!Array.isArray(incoming)) throw new Error('no records in file');
-      if (!confirm(`Replace the current log with ${incoming.length} imported entries?`)) return;
+      const shared = Sync.enabled()
+        ? ' The imported entries will sync to the other phone as well.' : '';
+      if (!confirm(`Replace this phone's log with ${incoming.length} imported entries?${shared}`)) return;
       Store.replaceAll(incoming, Array.isArray(data) ? null : data.settings);
       toast('Backup restored');
     } catch (err) {
@@ -432,7 +434,9 @@
   });
 
   $('#clearBtn').addEventListener('click', () => {
-    if (!confirm('Delete every entry? This cannot be undone — export a backup first if you might want it.')) return;
+    const shared = Sync.enabled()
+      ? ' This deletes them on the other phone too, not just this one.' : '';
+    if (!confirm(`Delete every entry?${shared} This cannot be undone — export a backup first if you might want it.`)) return;
     Store.clear();
     toast('All entries deleted');
   });

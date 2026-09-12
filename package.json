@@ -3,7 +3,7 @@
   "private": true,
   "description": "Baby tracker — the app itself has no dependencies; these are for the tests.",
   "scripts": {
-    "test": "node test/sync.test.mjs && node test/install.test.mjs && node test/pair.test.mjs && node test/qr.test.mjs",
+    "test": "node test/sync.test.mjs && node test/install.test.mjs && node test/pair.test.mjs && node test/gap.test.mjs && node test/qr.test.mjs",
     "serve": "python3 -m http.server 8080"
   },
   "devDependencies": {

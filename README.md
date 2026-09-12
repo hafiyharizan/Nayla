@@ -114,9 +114,15 @@ How it behaves:
 - Changes made with no signal queue up and drain when the phone reconnects.
 - The server assigns every record a revision from one sequence, so ordering doesn't
   depend on either phone's clock being right.
-- Conflicts resolve last-write-wins per record. Two people essentially never edit the
-  same entry, and the worst case is one edit of one entry losing to a later one — never
-  a lost log.
+- Merging is per entry, keyed by a unique id, so entries made on the two phones never
+  overwrite each other — they both survive. Last-write-wins applies only when the same
+  entry is edited in both places, and the worst case there is one edit of one entry
+  losing to a later one.
+- Every pull re-reads a window of recent revisions rather than trusting the cursor
+  exactly. Postgres assigns a revision number when a push starts, not when it commits,
+  so a pull can see revision 12 while 11 is still in flight; advancing the cursor to 12
+  would strand that entry permanently. The overlap closes that, and a full resync every
+  12 hours is the backstop for anything wider.
 - Deletes travel as tombstones, so removing an entry on one phone removes it on both.
 
 ## Your data

@@ -19,6 +19,19 @@
 const Sync = (() => {
   const POLL_MS = 60000;
   const DEBOUNCE_MS = 2000;
+  const PAGE = 2000;               // matches the LIMIT in nayla_sync_pull
+
+  /* Postgres hands out a sequence number before the transaction holding it
+   * commits, so a pull can see rev 12 while rev 11 is still in flight. Taking
+   * the highest rev seen as the next cursor would then step over rev 11 for
+   * good. Re-reading a window of recent revs on every pull closes that gap;
+   * merge ignores anything it already has, so the repeat costs nothing but a
+   * few KB. */
+  const PULL_OVERLAP = 200;
+
+  /* And a periodic pull from zero, so that even a gap wider than the overlap
+   * — or anything else we haven't thought of — heals on its own. */
+  const FULL_RESYNC_MS = 12 * 3600 * 1000;
 
   const state = { enabled: false, busy: false, lastSyncedAt: 0, error: null };
   const listeners = new Set();
@@ -105,11 +118,21 @@ const Sync = (() => {
 
       // Pulling straight after pushing is deliberate: it brings our own rows
       // back carrying the revs the server assigned them.
-      const since = Store.settings().lastPulledAt || 0;
-      const rows = await rpc('nayla_sync_pull', { p_code: code, p_since: since });
-      const cursor = rows.reduce((max, r) => Math.max(max, Number(r.rev)), since);
+      const mark = Store.settings().lastPulledAt || 0;
+      const lastFull = Store.settings().lastFullPullAt || 0;
+      const full = Date.now() - lastFull > FULL_RESYNC_MS;
+      const since = full ? 0 : Math.max(0, mark - PULL_OVERLAP);
+
+      const rows = await pullFrom(code, since);
       Store.merge(rows.map(fromRow));
-      Store.saveSettings({ lastPulledAt: cursor });
+
+      // Never let the mark slide backwards: the overlap is a re-read, not a
+      // rewind.
+      const next = rows.reduce((max, r) => Math.max(max, Number(r.rev)), mark);
+      Store.saveSettings({
+        lastPulledAt: next,
+        ...(full ? { lastFullPullAt: Date.now() } : {}),
+      });
 
       state.lastSyncedAt = Date.now();
     } catch (err) {
@@ -120,6 +143,19 @@ const Sync = (() => {
       announce();
     }
     return status();
+  }
+
+  /** Page through everything above `since`, so a long backlog can't be cut
+   *  off by the server's row limit. */
+  async function pullFrom(code, since) {
+    let cursor = since, all = [], pages = 0;
+    for (;;) {
+      const rows = await rpc('nayla_sync_pull', { p_code: code, p_since: cursor });
+      all = all.concat(rows);
+      if (rows.length < PAGE || ++pages > 50) break;
+      cursor = rows.reduce((max, r) => Math.max(max, Number(r.rev)), cursor);
+    }
+    return all;
   }
 
   function friendly(err) {

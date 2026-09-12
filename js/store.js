@@ -31,6 +31,7 @@ const Store = (() => {
     syncKey: '',
     syncCode: '',
     lastPulledAt: 0,
+    lastFullPullAt: 0,
   };
 
   /** Tombstones older than this are dropped; long past any device catching up. */
@@ -246,7 +247,7 @@ const Store = (() => {
 
   /** Settings minus the sync credentials — backups shouldn't carry the secret. */
   function publicSettings() {
-    const { syncUrl, syncKey, syncCode, lastPulledAt, ...rest } = settings;
+    const { syncUrl, syncKey, syncCode, lastPulledAt, lastFullPullAt, ...rest } = settings;
     return rest;
   }
 
