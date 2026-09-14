@@ -30,8 +30,21 @@ const Wake = (() => {
    *   ratio     — progress through the recommended window, 0..1+ (null without a range)
    *   status    — 'early' | 'due' | 'over' | null
    */
+  /* No baby sleeps through this. An open sleep older than it is not a baby
+   * asleep — it is a "Start sleep" tap that never got its "Woke up", and
+   * without this cap it hijacks the Now screen indefinitely: the ring counts
+   * up forever, the wake window is unusable, and closing it finally would
+   * write an absurd sleep into the history. */
+  const MAX_OPEN_SLEEP_MS = 12 * 3600 * 1000;
+
+  /* Likewise there is no useful "awake for" once nothing has been logged in
+   * a day — that is a gap in the log, not a very long afternoon. */
+  const MAX_AWAKE_MS = 24 * 3600 * 1000;
+
   function state(records, ageMonths) {
-    const active = records.find(r => r.type === 'sleep' && r.end == null);
+    const open = records.find(r => r.type === 'sleep' && r.end == null);
+    const forgotten = open && Date.now() - open.at > MAX_OPEN_SLEEP_MS ? open : null;
+    const active = forgotten ? null : open;
     const range = rangeFor(ageMonths);
 
     if (active) {
@@ -40,7 +53,7 @@ const Wake = (() => {
         since: active.at,
         elapsedMs: Date.now() - active.at,
         range, ratio: null, status: null,
-        entry: active,
+        entry: active, forgotten: null, stale: false,
       };
     }
 
@@ -55,12 +68,21 @@ const Wake = (() => {
       status = mins < range.min ? 'early' : mins <= range.max ? 'due' : 'over';
     }
 
-    return { sleeping: false, since, elapsedMs, range, ratio, status, entry: lastSleep };
+    // Nothing logged for a day or more: say so, rather than showing a number
+    // that reads like a medical emergency.
+    const stale = elapsedMs != null && elapsedMs > MAX_AWAKE_MS;
+
+    return {
+      sleeping: false, since, elapsedMs, range, ratio, status,
+      entry: lastSleep, forgotten, stale,
+    };
   }
 
   /** One line of plain-language guidance under the timer. */
   function hint(st) {
     if (st.sleeping) return 'Tap to log wake-up';
+    if (st.forgotten) return 'A sleep was left running — fix it below';
+    if (st.stale) return 'Nothing logged for a while';
     if (!st.range) return 'Add a date of birth for wake-window guidance';
     const { min, max } = st.range;
     const target = `Aim for ${Fmt.duration(min * Fmt.MIN)}–${Fmt.duration(max * Fmt.MIN)}`;

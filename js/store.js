@@ -177,7 +177,9 @@ const Store = (() => {
       const to = new Date(from); to.setDate(to.getDate() + 1);
       const a = from.getTime(), b = to.getTime();
       return live().filter(r => {
-        const end = r.end ?? r.at;
+        // An unfinished sleep runs up to now, not zero-length — otherwise a
+        // nap in progress since before midnight counts toward no day at all.
+        const end = r.end ?? Date.now();
         return r.at < b && end >= a;
       });
     },

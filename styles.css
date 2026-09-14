@@ -505,3 +505,21 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   margin: 0 0 16px;
 }
 #pairShare { width: 100%; }
+
+/* ── a sleep left running ──────────────────────────────────── */
+.fixup {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.fixup[hidden] { display: none; }
+.fixup:active { transform: scale(.99); }

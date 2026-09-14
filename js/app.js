@@ -65,9 +65,23 @@
     card.classList.toggle('is-over', !st.sleeping && st.status === 'over');
 
     $('#wakeLabel').textContent = st.sleeping ? 'Asleep for' : 'Awake for';
-    $('#wakeValue').textContent = st.elapsedMs == null ? '—' : Fmt.duration(st.elapsedMs);
+    // A stale reading is a gap in the log, not a real duration — "100h" reads
+    // like something is badly wrong with the baby rather than with the log.
+    $('#wakeValue').textContent =
+      (st.elapsedMs == null || st.stale) ? '—' : Fmt.duration(st.elapsedMs);
     $('#wakeSub').textContent = Wake.hint(st);
     $('#sleepToggle').textContent = st.sleeping ? 'Woke up' : 'Start sleep';
+
+    // A "Start sleep" that never got its "Woke up". Offer to sort it out,
+    // rather than silently counting up for days.
+    const fix = $('#fixSleep');
+    fix.hidden = !st.forgotten;
+    if (st.forgotten) {
+      fix.dataset.entry = st.forgotten.id;
+      fix.textContent =
+        `Sleep started ${Fmt.dayLabel(st.forgotten.at).toLowerCase()} at ` +
+        `${Fmt.clock(st.forgotten.at)} was never closed — tap to fix`;
+    }
 
     const ratio = st.sleeping
       ? Math.min(1, st.elapsedMs / NAP_REFERENCE_MS)
@@ -267,8 +281,10 @@
   });
 
   $('#sleepToggle').addEventListener('click', () => {
-    const active = Store.activeSleep();
-    if (active) {
+    // Deliberately Wake's view, not Store's: a sleep left running for days is
+    // not the one this button should close.
+    const active = Wake.state(Store.all(), Fmt.ageMonths(Store.settings().dob)).entry;
+    if (active && active.end == null) {
       Store.update(active.id, { end: Date.now() });
       toast(`Slept ${Fmt.duration(Date.now() - active.at)}`);
     } else {
