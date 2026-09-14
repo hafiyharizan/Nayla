@@ -217,7 +217,20 @@ const Store = (() => {
     settings() { return settings; },
 
     saveSettings(patch) {
+      const rekeyed = 'syncCode' in patch && patch.syncCode !== settings.syncCode;
       settings = { ...settings, ...patch };
+      if (rekeyed) {
+        // The log belongs to a household, and this is a different household
+        // now — one that has never seen any of these records. Hand the whole
+        // log over, and drop the revisions, which counted in the old
+        // household's sequence and mean nothing in the new one.
+        //
+        // This is also what carries a phone's own entries INTO a shared log
+        // when it pairs for the first time, instead of leaving them behind.
+        for (const r of records) { r.rev = 0; r.dirty = true; }
+        settings.lastPulledAt = 0;
+        settings.lastFullPullAt = 0;
+      }
       persist();
     },
 

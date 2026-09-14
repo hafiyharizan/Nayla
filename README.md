@@ -75,7 +75,9 @@ Follow your baby's cues, and take any concerns to your paediatrician.
 
 ## Sharing one log between two phones
 
-Setup is one scan. On the first phone, **Settings → Sync → Start sharing this
+Any number of phones can share one log — the pairing code names a household,
+and the server keys every row by that household, so a third or fourth phone is
+the same scan as the second. Setup is one scan. On the first phone, **Settings → Sync → Start sharing this
 log** shows a QR code; point the second phone's camera at it and tap the link
 that appears. That's the whole thing — the second phone configures itself and
 pulls the history down immediately.
@@ -114,6 +116,9 @@ How it behaves:
 - Changes made with no signal queue up and drain when the phone reconnects.
 - The server assigns every record a revision from one sequence, so ordering doesn't
   depend on either phone's clock being right.
+- Changing the pairing code moves the whole log across to the new household,
+  rather than leaving it stranded under the old one. The same path carries a
+  phone's own entries into a shared log the first time it pairs.
 - Merging is per entry, keyed by a unique id, so entries made on the two phones never
   overwrite each other — they both survive. Last-write-wins applies only when the same
   entry is edited in both places, and the worst case there is one edit of one entry

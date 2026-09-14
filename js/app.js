@@ -355,7 +355,9 @@
 
   $('#genCode').addEventListener('click', () => {
     if (Store.settings().syncCode &&
-        !confirm('Replace the current pairing code? The other phone will stop syncing until you give it the new one.')) return;
+        !confirm('Start a new pairing code?\n\nThis log moves across to it, but every other ' +
+                 'phone stops syncing until you show them the new code. To add a phone, you ' +
+                 'do not need this — just scan the code you already have.')) return;
     const code = Sync.newPairingCode();
     Store.saveSettings({ syncCode: code, lastPulledAt: 0 });
     $('#setSyncCode').value = code;

@@ -33,6 +33,12 @@ phone generates a code and renders a QR, the other opens the link and ends up
 configured and synced with nothing typed. It also covers the secret being
 stripped from the address bar and a malformed link being ignored.
 
+`three-devices.test.mjs` puts three phones on one log — entries, edits and
+deletes from each reaching the other two — and covers re-keying, which used to
+strand the entire history under the old pairing code.
+
+`gap.test.mjs` reproduces the lost-entry race described in `sync.js`.
+
 `qr.test.mjs` round-trips the QR encoder: encode, render to an image, and
 decode with zxing — the same engine behind most phone cameras. It sweeps
 versions 1-10 and both sides of every version boundary, which is where a

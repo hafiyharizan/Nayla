@@ -20,6 +20,7 @@ const Sync = (() => {
   const POLL_MS = 60000;
   const DEBOUNCE_MS = 2000;
   const PAGE = 2000;               // matches the LIMIT in nayla_sync_pull
+  const PUSH_BATCH = 500;          // matches the row cap in nayla_sync_push
 
   /* Postgres hands out a sequence number before the transaction holding it
    * commits, so a pull can see rev 12 while rev 11 is still in flight. Taking
@@ -110,10 +111,13 @@ const Sync = (() => {
 
     const code = config().code;
     try {
+      // Pushed in batches: the server refuses more than 500 rows at once, and
+      // a first import or a re-keyed household hands over the entire log.
       const pending = Store.pending();
-      if (pending.length) {
-        await rpc('nayla_sync_push', { p_code: code, p_rows: pending.map(toRow) });
-        Store.markPushed(pending.map(r => r.id));
+      for (let i = 0; i < pending.length; i += PUSH_BATCH) {
+        const batch = pending.slice(i, i + PUSH_BATCH);
+        await rpc('nayla_sync_push', { p_code: code, p_rows: batch.map(toRow) });
+        Store.markPushed(batch.map(r => r.id));
       }
 
       // Pulling straight after pushing is deliberate: it brings our own rows
