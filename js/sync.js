@@ -17,7 +17,14 @@
  * reachable: the pairing code is the only way in. See supabase/migrations/.
  */
 const Sync = (() => {
-  const POLL_MS = 60000;
+  /* Two speeds. Right after someone picks the phone up, the other parent may
+   * be logging at that very moment — a night feed gets handed over, both
+   * phones are awake — so check often enough that entries appear while you
+   * are still looking. Once it has been sitting open a while, nobody is
+   * watching it, so back off and stop spending battery. */
+  const POLL_FAST_MS = 10000;
+  const POLL_SLOW_MS = 60000;
+  const FAST_WINDOW_MS = 2 * 60 * 1000;
   const DEBOUNCE_MS = 2000;
   const PAGE = 2000;               // matches the LIMIT in nayla_sync_pull
   const PUSH_BATCH = 500;          // matches the row cap in nayla_sync_push
@@ -207,14 +214,34 @@ const Sync = (() => {
     return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
   }
 
+  let pollTimer = null;
+  let fastUntil = 0;
+
+  function nextPoll() {
+    clearTimeout(pollTimer);
+    const delay = Date.now() < fastUntil ? POLL_FAST_MS : POLL_SLOW_MS;
+    pollTimer = setTimeout(async () => {
+      if (!document.hidden) await run({ silent: true });
+      nextPoll();
+    }, delay);
+  }
+
+  /** Someone is looking — check often for the next couple of minutes. */
+  function quicken() {
+    fastUntil = Date.now() + FAST_WINDOW_MS;
+    nextPoll();
+  }
+
   function start() {
-    Store.onChange(schedule);
-    window.addEventListener('online', () => run({ silent: true }));
+    Store.onChange(() => { schedule(); quicken(); });
+    window.addEventListener('online', () => { run({ silent: true }); quicken(); });
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) run({ silent: true });
+      if (document.hidden) { clearTimeout(pollTimer); return; }
+      run({ silent: true });     // back in front of you: current straight away
+      quicken();
     });
-    setInterval(() => { if (!document.hidden) run({ silent: true }); }, POLL_MS);
     run({ silent: true });
+    quicken();
   }
 
   return {

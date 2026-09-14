@@ -89,9 +89,11 @@ it doesn't linger in history or in a screenshot. Anyone apart can use **Send the
 link instead**, with the obvious caveat that whoever receives it can read and
 write the log.
 
-After that, entries appear on the other phone on their own: each phone syncs
-when it's opened, when it comes back to the foreground, a couple of seconds
-after anything is logged, and once a minute while it's open.
+After that, entries appear on the other phone on their own — nobody presses
+anything. A phone uploads what you log about two seconds later, and pulls when
+it's opened, when it comes back to the foreground, and on a timer while it sits
+open: every 10 seconds for the first couple of minutes, then once a minute once
+it's clear nobody is watching it.
 
 ### How it works
 
