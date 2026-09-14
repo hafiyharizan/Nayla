@@ -21,6 +21,7 @@ const Sync = (() => {
   const DEBOUNCE_MS = 2000;
   const PAGE = 2000;               // matches the LIMIT in nayla_sync_pull
   const PUSH_BATCH = 500;          // matches the row cap in nayla_sync_push
+  const REQUEST_TIMEOUT_MS = 20000;
 
   /* Postgres hands out a sequence number before the transaction holding it
    * commits, so a pull can see rev 12 while rev 11 is still in flight. Taking
@@ -63,14 +64,25 @@ const Sync = (() => {
 
   async function rpc(name, body) {
     const c = config();
-    const res = await fetch(`${c.url}/rest/v1/rpc/${name}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(c.key ? { apikey: c.key, Authorization: `Bearer ${c.key}` } : {}),
-      },
-      body: JSON.stringify(body),
-    });
+    // A sleeping or restarting server accepts the connection and then never
+    // answers, so without this the request hangs and the UI just says
+    // "Syncing…" indefinitely.
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), REQUEST_TIMEOUT_MS);
+    let res;
+    try {
+      res = await fetch(`${c.url}/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(c.key ? { apikey: c.key, Authorization: `Bearer ${c.key}` } : {}),
+        },
+        body: JSON.stringify(body),
+        signal: abort.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       throw new Error(`${name} → ${res.status}${detail ? `: ${detail.slice(0, 120)}` : ''}`);
@@ -162,11 +174,24 @@ const Sync = (() => {
     return all;
   }
 
+  /* Turn the failure into something that answers the only two questions that
+   * matter at 3am: is it me, and did I lose anything? Nothing is ever lost —
+   * a failed sync leaves the entries queued on the phone and they go up on
+   * the next attempt — so every message here says so. */
   function friendly(err) {
     const msg = String(err.message || err);
-    if (msg.includes('Failed to fetch')) return "Can't reach the server.";
-    if (msg.includes('401') || msg.includes('403')) return 'Server rejected the key.';
-    if (msg.includes('pairing code')) return 'That pairing code was rejected.';
+
+    // Each browser words a dead connection differently.
+    if (err.name === 'AbortError' || /Load failed|Failed to fetch|NetworkError|timed out/i.test(msg)) {
+      return 'the server did not answer. Entries are safe on this phone and will go up on their own.';
+    }
+    // 502/503/504 — the gateway is there, the database behind it is not.
+    // On the free tier that usually means it went to sleep and is waking up.
+    if (/→ 50[234]/.test(msg)) {
+      return 'the server is asleep or restarting. Entries are safe on this phone; it will keep trying.';
+    }
+    if (/→ 40[13]/.test(msg)) return 'the server rejected the key. Check Settings → Advanced.';
+    if (msg.includes('pairing code')) return 'that pairing code was rejected.';
     return msg;
   }
 

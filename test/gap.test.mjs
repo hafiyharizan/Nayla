@@ -154,6 +154,20 @@ await sync(dad.p);
 ok('periodic full resync recovers a hopelessly advanced cursor',
    (await count(dad.p)) === 2, `${await count(dad.p)} records`);
 
+// A sleeping server (504) must say so plainly, and must not lose anything.
+await dad.p.evaluate(() => {
+  Store.add({ type: 'feed', at: Date.now(), end: null, data: { method: 'bottle', amount: 99 } });
+});
+const before = await dad.p.evaluate(() => Store.pending().length);
+await dad.p.route('**/rest/v1/rpc/**', r => r.fulfill({ status: 504, body: 'gateway timeout' }));
+await sync(dad.p);
+const msg = await dad.p.evaluate(() => Sync.status().error);
+ok('a sleeping server is explained, not echoed', /asleep|restarting/i.test(msg || ''), msg);
+ok('entries stay queued when the server is down',
+   (await dad.p.evaluate(() => Store.pending().length)) >= before,
+   `${await dad.p.evaluate(() => Store.pending().length)} queued`);
+await dad.p.unroute('**/rest/v1/rpc/**');
+
 console.log(errs.length ? '\nERRORS:\n' + errs.join('\n') : '\nno console errors');
 console.log(fails.length ? `\n${fails.length} FAILING` : '\nall passed');
 await br.close(); srv.close();

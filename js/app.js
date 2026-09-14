@@ -312,7 +312,7 @@
     el.classList.toggle('is-bad', Boolean(st.error));
 
     if (!st.enabled) el.textContent = 'Not paired yet — this log stays on this phone.';
-    else if (st.error) el.textContent = `Can't sync right now: ${st.error}`;
+    else if (st.error) el.textContent = `Not syncing — ${st.error}`;
     else if (st.busy) el.textContent = 'Syncing…';
     else if (st.lastSyncedAt) el.textContent = `Up to date · checked ${Fmt.ago(st.lastSyncedAt)}`;
     else el.textContent = 'Paired — first sync on its way.';
