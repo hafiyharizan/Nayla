@@ -63,8 +63,8 @@ async function phone(label) {
 // ── Phone 1: tap once, get a code and a QR ──
 const dad = await phone('dad');
 await dad.p.click('[data-tab="settings"]'); await dad.p.waitForTimeout(200);
-ok('starts unpaired', (await dad.p.textContent('#syncStatus')).includes('Not paired'));
-ok('button invites sharing', (await dad.p.textContent('#pairBtn')).includes('Start sharing'));
+ok('no sync status shouting on a fresh phone', await dad.p.isHidden('#syncStatus'));
+ok('button invites sharing', (await dad.p.textContent('#pairBtn')).includes('Share this log'));
 
 await dad.p.click('#pairBtn'); await dad.p.waitForTimeout(400);
 ok('pairing sheet opens', await dad.p.isVisible('#pairSheet'));
@@ -107,8 +107,8 @@ ok('the entry is his feed',
    (await mum.p.evaluate(() => Store.all()[0]?.data?.amount)) === 120);
 
 await mum.p.click('[data-tab="settings"]'); await mum.p.waitForTimeout(400);
-const status = await mum.p.textContent('#syncStatus');
-ok('her status shows paired', /Up to date|first sync/.test(status), status);
+ok('nothing to worry about once it is working', await mum.p.isHidden('#syncStatus'));
+ok('button now offers a third phone', (await mum.p.textContent('#pairBtn')).includes('Add another'));
 ok('fields show what sync actually uses (not blank)',
    (await mum.p.inputValue('#setSyncCode')) === code);
 

@@ -319,22 +319,38 @@
     if (el && document.activeElement !== el) el.value = value ?? '';
   }
 
+  /* Sharing should feel like it just works, so this stays quiet.
+   *
+   * A failed sync is not news: entries are saved either way and go up on
+   * their own. Saying so every time would train both of us to worry about
+   * something that needs no action. So nothing is shown while it is working,
+   * nor for a blip — only once it has genuinely been stuck for an hour, which
+   * is the point where somebody might actually want to look into it. */
+  const STUCK_AFTER_MS = 60 * 60 * 1000;
+
   function renderSyncStatus() {
     const st = Sync.status();
     const el = $('#syncStatus');
     if (!el) return;
 
-    el.classList.toggle('is-on', st.enabled && !st.error);
-    el.classList.toggle('is-bad', Boolean(st.error));
+    const paired = Boolean(Store.settings().syncCode);
+    const stuck = st.enabled && st.error &&
+                  st.lastSyncedAt && Date.now() - st.lastSyncedAt > STUCK_AFTER_MS;
+    // Never synced at all, and erroring — worth saying, since it may be set up wrong.
+    const neverWorked = st.enabled && st.error && !st.lastSyncedAt;
 
-    if (!st.enabled) el.textContent = 'Not paired yet — this log stays on this phone.';
-    else if (st.error) el.textContent = `Not syncing — ${st.error}`;
-    else if (st.busy) el.textContent = 'Syncing…';
-    else if (st.lastSyncedAt) el.textContent = `Up to date · checked ${Fmt.ago(st.lastSyncedAt)}`;
-    else el.textContent = 'Paired — first sync on its way.';
+    el.hidden = !(stuck || neverWorked);
+    el.classList.toggle('is-bad', true);
+    if (!el.hidden) {
+      el.textContent = `Hasn't reached the server ${st.lastSyncedAt
+        ? `since ${Fmt.ago(st.lastSyncedAt)}` : 'yet'} — ${st.error} `;
+    }
 
-    $('#pairBtn').textContent = Store.settings().syncCode
-      ? 'Pair the other phone' : 'Start sharing this log';
+    $('#pairBtn').textContent = paired
+      ? 'Add another phone' : 'Share this log with another phone';
+    $('#syncHint').textContent = paired
+      ? 'Every phone with this code shows the same log, and updates itself.'
+      : 'Scan one code and both phones share the same log, updating on their own.';
   }
 
   $('#setName').addEventListener('input', e => Store.saveSettings({ name: e.target.value.trim() }));
@@ -381,9 +397,9 @@
   });
 
   $('#syncNow').addEventListener('click', async () => {
-    if (!Sync.enabled()) { toast('Fill in all three sync fields first.'); return; }
+    if (!Sync.enabled()) { toast('Pair a phone first.'); return; }
     const st = await Sync.run();
-    toast(st.error ? st.error : 'Synced');
+    toast(st.error ? `Still ${st.error}` : 'Up to date');
   });
 
   Sync.onChange(() => { if (currentView === 'settings') renderSyncStatus(); });

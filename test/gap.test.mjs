@@ -163,6 +163,8 @@ await dad.p.route('**/rest/v1/rpc/**', r => r.fulfill({ status: 504, body: 'gate
 await sync(dad.p);
 const msg = await dad.p.evaluate(() => Sync.status().error);
 ok('a sleeping server is explained, not echoed', /asleep|restarting/i.test(msg || ''), msg);
+await dad.p.click('[data-tab="settings"]'); await dad.p.waitForTimeout(300);
+ok('a brief outage stays out of the way', await dad.p.isHidden('#syncStatus'));
 ok('entries stay queued when the server is down',
    (await dad.p.evaluate(() => Store.pending().length)) >= before,
    `${await dad.p.evaluate(() => Store.pending().length)} queued`);

@@ -162,6 +162,7 @@ async function newPhone(label) {
   }
   ok('settings shows local-only copy',
      (await page.textContent('#dataScope')).includes('this device only'));
+  ok('unpaired phone is not nagged about sync', await page.isHidden('#syncStatus'));
   await ctx.close();
 }
 
