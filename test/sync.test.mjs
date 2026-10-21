@@ -126,8 +126,11 @@ async function newPhone(label) {
   ok('quick buttons built from registry', (await page.locator('#quickGrid .quick').count()) === 3);
   ok('status cards built from registry', (await page.locator('#statusRow .stat').count()) === 3);
   ok('filters built from registry', (await page.locator('#historyFilters .chip').count()) === 4);
-  ok('dob defaults to real birthday', (await page.textContent('#babyAge')).includes('week'),
-     await page.textContent('#babyAge'));
+  // Her age in whatever unit suits it now — asserting "weeks" dated badly
+  // the moment she turned four months old.
+  const age = await page.textContent('#babyAge');
+  ok('dob defaults to her real birthday',
+     /^\d+ (day|week|month|year)s? old$/.test(age.trim()), age.trim());
 
   await page.click('[data-log="feed"]');
   await page.fill('input[name="amount"]', '150');

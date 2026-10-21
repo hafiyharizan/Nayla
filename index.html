@@ -49,6 +49,18 @@
     <h2 class="section-title">Log something</h2>
     <div class="quick-grid" id="quickGrid"></div>
 
+    <button class="mic" id="micBtn" hidden>
+      <span class="mic-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2.5" width="6" height="11" rx="3"/>
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0"/>
+          <path d="M12 17.5V21"/>
+        </svg>
+      </span>
+      <span class="mic-label" id="micLabel">Say it instead</span>
+    </button>
+
     <h2 class="section-title">Today</h2>
     <div class="today" id="todaySummary"></div>
 
@@ -157,6 +169,26 @@
   <button class="tab" data-tab="settings"><span>⚙️</span>Settings</button>
 </nav>
 
+<!-- ───────────────────────── HEARD IT ───────────────────────── -->
+<div class="sheet-backdrop" id="voiceSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="voiceTitle">
+    <div class="sheet-grab"></div>
+    <header class="sheet-head">
+      <h2 id="voiceTitle">Is this right?</h2>
+      <button class="icon-btn" id="voiceClose" aria-label="Close">✕</button>
+    </header>
+    <div class="sheet-body">
+      <p class="heard" id="voiceHeard"></p>
+      <p class="understood" id="voiceSummary"></p>
+      <p class="install-foot" id="voiceWhen"></p>
+      <div class="sheet-actions">
+        <button class="btn" id="voiceEdit">Change it</button>
+        <button class="btn btn-primary" id="voiceSave">Log it</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ───────────────────────── PAIRING ───────────────────────── -->
 <div class="sheet-backdrop" id="pairSheet" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pairTitle">
@@ -228,6 +260,7 @@
 <script src="js/sync.js"></script>
 <script src="js/wake.js"></script>
 <script src="js/sheet.js"></script>
+<script src="js/voice.js"></script>
 <script src="js/qr.js"></script>
 <script src="js/pair.js"></script>
 <script src="js/install.js"></script>

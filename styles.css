@@ -523,3 +523,49 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 .fixup[hidden] { display: none; }
 .fixup:active { transform: scale(.99); }
+
+/* ── speak to log ──────────────────────────────────────────── */
+.mic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 10px;
+  min-height: 52px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform .08s ease;
+}
+.mic[hidden] { display: none; }
+.mic:active { transform: scale(.98); }
+.mic-icon { width: 22px; height: 22px; color: var(--accent); display: grid; place-items: center; }
+.mic-icon svg { width: 100%; height: 100%; }
+
+.mic.is-listening { background: var(--accent); border-color: transparent; color: #fff; }
+.mic.is-listening .mic-icon { color: #fff; }
+@media (prefers-color-scheme: dark) {
+  .mic.is-listening { color: #201509; }
+  .mic.is-listening .mic-icon { color: #201509; }
+}
+.mic.is-listening .mic-icon { animation: mic-pulse 1.1s ease-in-out infinite; }
+@keyframes mic-pulse { 50% { opacity: .35; transform: scale(.88); } }
+
+.heard {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-style: italic;
+  color: var(--text-dim);
+}
+.heard::before { content: '“'; }
+.heard::after  { content: '”'; }
+.understood { margin: 0 0 4px; font-size: 20px; font-weight: 650; }

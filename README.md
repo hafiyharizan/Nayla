@@ -177,6 +177,26 @@ feed is.
 
 Sync in particular is type-agnostic, so a new feature arrives already syncing.
 
+## Logging by voice
+
+Tap **Say it instead** on the Now screen and speak plainly — "feed 130 ml",
+"wet nappy", "she's asleep", "woke up", "dirty nappy 20 minutes ago". It shows
+what it heard and what it's about to write, and waits to be told yes; speech
+recognition misfires, and a silently invented feed is worse than one extra tap.
+**Change it** hands the entry to the normal editor instead.
+
+The parser is in `js/voice.js` and has no dependencies, so it is tested
+exhaustively without a microphone — including the phrases that would quietly
+corrupt a log, like "feed 130 ml 20 minutes ago" needing to keep 130 as the
+amount and 20 as the minutes.
+
+Browsers without speech recognition simply don't show the button.
+
+### Hey Siri
+
+Siri can log without opening the app at all, via a Shortcut that posts straight
+to the database. See [`docs/siri-shortcuts.md`](docs/siri-shortcuts.md).
+
 ## Importing an existing log
 
 If you tracked feeds in a WhatsApp group before this app existed,

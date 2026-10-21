@@ -293,6 +293,81 @@
     }
   });
 
+  /* ── speaking instead of tapping ─────────────────────────── */
+  let pendingVoice = null;
+
+  function showVoice(result) {
+    pendingVoice = result;
+    $('#voiceHeard').textContent = result.heard;
+    $('#voiceSummary').textContent =
+      result.kind === 'wake' ? 'Woke up' : result.summary;
+    const at = result.kind === 'wake' ? Date.now() : result.record.at;
+    $('#voiceWhen').textContent = Math.abs(Date.now() - at) < 60000
+      ? 'Just now' : `At ${Fmt.clock(at)}, ${Fmt.ago(at)}`;
+    $('#voiceSheet').hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeVoice() {
+    $('#voiceSheet').hidden = true;
+    document.body.style.overflow = '';
+    pendingVoice = null;
+  }
+
+  async function listen() {
+    const btn = $('#micBtn');
+    btn.classList.add('is-listening');
+    $('#micLabel').textContent = 'Listening…';
+    try {
+      const heard = await Voice.listen();
+      const result = Voice.parse(heard);
+      if (!result) {
+        toast(`Didn't understand “${heard}”`);
+        return;
+      }
+      showVoice(result);
+    } catch (err) {
+      const why = Voice.explain(err);
+      if (why) toast(why);
+    } finally {
+      btn.classList.remove('is-listening');
+      $('#micLabel').textContent = 'Say it instead';
+    }
+  }
+
+  function saveVoice() {
+    if (!pendingVoice) return;
+    if (pendingVoice.kind === 'wake') {
+      const asleep = Wake.state(Store.all(), Fmt.ageMonths(Store.settings().dob)).entry;
+      if (asleep && asleep.end == null) {
+        Store.update(asleep.id, { end: Date.now() });
+        toast(`Slept ${Fmt.duration(Date.now() - asleep.at)}`);
+      } else {
+        toast('No sleep was running.');
+      }
+    } else {
+      Store.add(pendingVoice.record);
+      toast('Logged');
+    }
+    closeVoice();
+  }
+
+  $('#micBtn').addEventListener('click', listen);
+  $('#voiceSave').addEventListener('click', saveVoice);
+  $('#voiceClose').addEventListener('click', closeVoice);
+  $('#voiceSheet').addEventListener('click', e => {
+    if (e.target.id === 'voiceSheet') closeVoice();
+  });
+  // Heard it wrong, or wants to add a note: hand it to the normal editor.
+  $('#voiceEdit').addEventListener('click', () => {
+    const result = pendingVoice;
+    closeVoice();
+    if (!result) return;
+    if (result.kind === 'wake') { openSheet('sleep', Store.activeSleep() || undefined); return; }
+    const saved = Store.add(result.record);
+    openSheet(saved.type, saved);
+  });
+
   /* ── SETTINGS view ───────────────────────────────────────── */
   function renderSettings() {
     const s = Store.settings();
@@ -488,6 +563,10 @@
   }
 
   buildChrome();
+
+  // Hidden entirely where the browser can't do it, rather than offering a
+  // button that does nothing.
+  $('#micBtn').hidden = !Voice.supported();
 
   // Opened from a pairing link: adopt the code before the first render, so
   // she never sees an unpaired screen that then changes under her.
