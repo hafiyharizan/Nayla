@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#EFEDE7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1A1917" media="(prefers-color-scheme: dark)">
-<meta name="description" content="Track feeding, diaper changes, sleep and wake windows for your baby.">
+<meta name="description" content="Track feeds, diapers, sleep, solids, growth and milestones for your baby.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Nayla">
 <title>Nayla — Baby Tracker</title>
@@ -46,7 +46,7 @@
 
     <div class="stat-row" id="statusRow"></div>
 
-    <h2 class="section-title">Log something</h2>
+    <h2 class="section-title" id="quickTitle">Log something</h2>
     <div class="quick-grid" id="quickGrid"></div>
 
     <button class="mic" id="micBtn" hidden>
@@ -61,11 +61,16 @@
       <span class="mic-label" id="micLabel">Say it instead</span>
     </button>
 
-    <h2 class="section-title">Today</h2>
+    <h2 class="section-title" id="todayTitle">Today</h2>
     <div class="today" id="todaySummary"></div>
 
     <h2 class="section-title">Recent</h2>
     <ul class="entries" id="recentList"></ul>
+  </section>
+
+  <!-- ───────────────────────── GROWING ───────────────────────── -->
+  <section id="view-growing" class="view" data-view="growing" hidden>
+    <div id="growingBody"></div>
   </section>
 
   <!-- ───────────────────────── HISTORY ───────────────────────── -->
@@ -99,6 +104,27 @@
           <option value="oz">ounces (oz)</option>
         </select>
       </label>
+      <label class="field">
+        <span>Growth chart</span>
+        <select id="setSex">
+          <option value="girl">Girl</option>
+          <option value="boy">Boy</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Growth units</span>
+        <select id="setGrowthUnits">
+          <option value="metric">kg and cm</option>
+          <option value="imperial">lb and inches</option>
+        </select>
+      </label>
+    </div>
+
+    <h2 class="section-title">Trackers</h2>
+    <div class="card form">
+      <div id="trackerList" class="tracker-list"></div>
+      <p class="muted tracker-foot">Turning one off only hides it on this phone. Everything
+        already logged is kept, and comes back when you turn it on again.</p>
     </div>
 
     <h2 class="section-title">Sync</h2>
@@ -158,12 +184,14 @@
     <h2 class="section-title">About</h2>
     <div class="card">
       <p class="muted">Wake-window guidance is a rough age-based range, not medical advice. Every baby is different — follow your baby's cues, and talk to your paediatrician with any concerns.</p>
+      <p class="muted">Growth percentiles use the WHO Child Growth Standards, birth to two years. They describe rather than diagnose: the shape of the line over several visits matters more than any one measurement.</p>
     </div>
   </section>
 </main>
 
 <nav class="tabbar">
   <button class="tab is-on" data-tab="now"><span>⏱</span>Now</button>
+  <button class="tab" data-tab="growing"><span>🌱</span>Growing</button>
   <button class="tab" data-tab="history"><span>📖</span>History</button>
   <button class="tab" data-tab="stats"><span>📊</span>Stats</button>
   <button class="tab" data-tab="settings"><span>⚙️</span>Settings</button>
@@ -255,15 +283,18 @@
 
 <script src="js/config.js"></script>
 <script src="js/format.js"></script>
+<script src="js/who.js"></script>
 <script src="js/features.js"></script>
 <script src="js/store.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/photos.js"></script>
 <script src="js/wake.js"></script>
 <script src="js/sheet.js"></script>
 <script src="js/voice.js"></script>
 <script src="js/qr.js"></script>
 <script src="js/pair.js"></script>
 <script src="js/install.js"></script>
+<script src="js/growing.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

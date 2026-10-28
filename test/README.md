@@ -37,6 +37,16 @@ stripped from the address bar and a malformed link being ignored.
 deletes from each reaching the other two — and covers re-keying, which used to
 strand the entire history under the old pairing code.
 
+`trackers.test.mjs` covers solids, growth and milestones, and the tracker switches:
+
+- turning a tracker off hides it everywhere while keeping its entries, and the last
+  one can't be turned off
+- logging a meal from chips and typed foods, and the first-allergen reminder
+- growth: unit conversion, implausible values refused, and the WHO percentile shown
+- a milestone photo going from one phone to the other through the server, and its
+  deletion following the milestone
+- a server without the photo migration: photos stay local, nothing breaks
+
 `gap.test.mjs` reproduces the lost-entry race described in `sync.js`.
 
 `qr.test.mjs` round-trips the QR encoder: encode, render to an image, and

@@ -1,6 +1,7 @@
 # Nayla
 
-A small web app for tracking a baby's **feeds, diaper changes, sleep, and wake windows**.
+A small web app for tracking a baby's **feeds, diaper changes, sleep and wake windows** —
+plus **solid food, growth and milestones** as she gets older.
 
 Built to be used one-handed on a phone at 3am: big tap targets, a live wake-window
 timer on the home screen, and one tap to start or end a sleep.
@@ -34,25 +35,59 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
   wake window. It turns blue while she's asleep and red once she's past the window.
 - Time since the last feed, last diaper, and the length of the last sleep. Tap any
   of them to edit that entry.
-- One-tap logging for a feed, diaper, or sleep.
+- One-tap logging for a feed, diaper, sleep, or a solid meal.
 - Today's running totals and the most recent entries.
+
+**Growing** — the slow-moving things, looked back on over months.
+- **Growth:** latest weight, length and head size, each with its WHO percentile, and
+  her line drawn over the WHO growth chart (birth to two years). Tap a tile to switch
+  the chart, tap a dot to read it.
+- **Milestones:** firsts with a date, her age at the time, and an optional photo.
+- **Foods tried:** every food she has had, when she first had it, how it went, any
+  reaction noted — and which of the nine common allergens she has had so far. Logging
+  the first taste of one shows a reminder to keep an eye on her for a couple of hours.
 
 **History** — every entry grouped by day, with a per-day summary line, filterable by
 type. Tap an entry to edit or delete it.
 
-**Stats** — sleep, feeds, diapers, and bottle volume per day over the last 7 days,
-with 7-day averages.
+**Stats** — sleep, feeds, diapers, bottle volume and solid meals per day over the
+last 7 days, with 7-day averages.
 
-**Settings** — name, date of birth (which drives the wake-window guidance and the age
-in the header), ml/oz, sync, and backup/restore.
+**Settings** — name, date of birth (which drives the wake-window guidance, the growth
+chart and the age in the header), ml/oz, girl/boy chart, kg+cm or lb+in, which
+trackers to show, sync, and backup/restore.
+
+### Turning trackers on and off
+
+**Settings → Trackers** has a switch for each of the six. Turning one off hides it
+everywhere on that phone — its button, its Today total, its History filter, its
+section of Growing — but deletes nothing: the entries stay, keep syncing, and come
+back the moment it's turned on again. Turning sleep off also hides the wake-window
+ring, which depends on it. The switches are per phone, so each parent can keep their
+own screen as simple as they like. At least one has to stay on.
 
 ### What gets recorded
 
 | Type | Fields |
 | --- | --- |
-| Feed | bottle / left / right / solids, amount, duration, time, note |
+| Feed | bottle / left / right, amount, duration, time, note |
 | Diaper | wet / dirty / both, time, note |
 | Sleep | fell asleep, woke up (leave empty while still asleep), note |
+| Solids | foods, how much, how it went, signs of a reaction, time, note |
+| Growth | weight, length, head circumference (any of them), date, note |
+| Milestone | what happened, date, photo, note |
+
+Feeds logged as "Solids" before the solids tracker existed keep their label. The
+option reappears on the feed form whenever the solids tracker is switched off.
+
+### Growth percentiles
+
+Percentiles come from the [WHO Child Growth Standards](https://www.who.int/tools/child-growth-standards)
+— the charts most clinic health books use — via the published L, M, S parameters
+for each month of age (`js/who.js`), interpolated between months. They cover birth to
+24 months. Below the 3rd or above the 97th the app says so in words rather than
+printing a number. A percentile describes, it doesn't diagnose: the shape of her
+line over several visits says far more than any single dot.
 
 ## Wake windows
 
@@ -145,30 +180,38 @@ Either way, keep backups. **Settings → Export JSON** is a full backup and **Im
 restores it (also how you move to a new phone); **Export CSV** is for looking at the
 numbers in a spreadsheet. Clearing the browser's site data deletes the local log.
 
+Milestone photos are the exception: they are too big for the log, so each phone keeps
+them in IndexedDB, and with sync on they go to their own table on the server
+(`supabase/migrations/0003_photos.sql`). A JSON backup holds the milestones but not
+the photos. Photos are shrunk to 1280px before they're stored — 150–300 KB each.
+
 ## Layout
 
 ```
-index.html            markup for all four views plus the entry sheet
+index.html            markup for all five views plus the entry sheet
 styles.css            design tokens, light + dark, mobile-first
 js/config.js          where to sync to (empty = local only)
-js/format.js          durations, clock times, day labels, ml/oz
-js/features.js        the feature registry — what a feed, diaper or sleep IS
+js/format.js          durations, clock times, day labels, ml/oz, kg/lb, cm/in
+js/who.js             WHO growth standards (0–24 months) and percentile maths
+js/features.js        the feature registry — what a feed, a meal or a milestone IS
 js/store.js           records + settings, persisted to localStorage
 js/sync.js            push/pull/merge against the backend
+js/photos.js          milestone photos: shrink, keep in IndexedDB, sync separately
 js/qr.js              a small QR encoder, for the pairing code
 js/pair.js            pairing by scan or link
 js/wake.js            wake-window ranges and current awake/asleep state
 js/sheet.js           the add/edit sheet, rendered from a feature's fields
+js/growing.js         the Growing tab: growth chart, milestones, foods tried
 js/app.js             views, live timers, stats, import/export
 sw.js                 offline caching
-supabase/             the sync backend: one table, two functions
+supabase/             the sync backend: a records table, a photos table
 deploy/               that same backend on a VPS, behind Caddy
 test/                 browser tests (npm test)
 ```
 
 ### Adding a feature
 
-Everything the app records — feeds now, growth and photos later — is one record
+Everything the app records — feeds, meals, measurements, milestones — is one record
 shape: `{ id, type, at, end, note, data, updatedAt, rev, dirty, deleted }`. A
 feature declares its icon, its form fields, and how to describe and tally itself
 in `js/features.js`; the history list, the edit sheet, the daily summaries,

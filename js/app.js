@@ -33,7 +33,8 @@
     el.textContent = message;
     el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.hidden = true; }, 2400);
+    // Long enough to actually read: a sentence of advice needs more than "Saved".
+    toastTimer = setTimeout(() => { el.hidden = true; }, Math.max(2400, message.length * 70));
   }
 
   function escapeHtml(s) {
@@ -41,24 +42,53 @@
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  /* ── static chrome built from the registry ───────────────── */
+  /** The features this phone shows. Hidden ones keep their entries. */
+  function enabled() {
+    return Features.all().filter(f => Store.trackerOn(f.type));
+  }
+
+  /** Entries of the trackers that are on, newest first. */
+  function visibleRecords() {
+    return Store.all().filter(r => Store.trackerOn(r.type));
+  }
+
+  /* ── chrome built from the registry ──────────────────────── */
+  /* Rebuilt on every render, since turning a tracker on or off changes it. */
   function buildChrome() {
-    $('#quickGrid').innerHTML = Features.all().map(f =>
+    const quick = enabled().filter(f => f.quick);
+    $('#quickGrid').innerHTML = quick.map(f =>
       `<button class="quick quick-${f.type}" data-log="${f.type}">
          <span class="quick-icon">${f.icon}</span><span>${f.label}</span>
        </button>`).join('');
+    $('#quickTitle').hidden = !quick.length;
 
+    if (historyFilter !== 'all' && !Store.trackerOn(historyFilter)) historyFilter = 'all';
     $('#historyFilters').innerHTML =
-      `<button class="chip is-on" data-filter="all">All</button>` +
-      Features.all().map(f =>
-        `<button class="chip" data-filter="${f.type}">${f.label}s</button>`).join('');
+      `<button class="chip ${historyFilter === 'all' ? 'is-on' : ''}" data-filter="all">All</button>` +
+      enabled().map(f =>
+        `<button class="chip ${historyFilter === f.type ? 'is-on' : ''}" data-filter="${f.type}">${
+          f.type === 'solids' || f.type === 'growth' ? f.label : `${f.label}s`}</button>`).join('');
+
+    const growingTab = document.querySelector('.tab[data-tab="growing"]');
+    growingTab.hidden = !Growing.anyOn();
+    if (growingTab.hidden && currentView === 'growing') currentView = 'now';
+    document.querySelectorAll('.view').forEach(v => { v.hidden = v.dataset.view !== currentView; });
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-on', t.dataset.tab === currentView));
   }
 
   /* ── NOW view ────────────────────────────────────────────── */
   function renderNow() {
     const settings = Store.settings();
-    const records = Store.all();
-    const st = Wake.state(records, Fmt.ageMonths(settings.dob));
+    const records = visibleRecords();
+    const sleepOn = Store.trackerOn('sleep');
+    $('#wakeCard').hidden = !sleepOn;
+    if (!sleepOn) $('#fixSleep').hidden = true;
+    renderStatusRow(settings);
+    renderToday(settings);
+    renderList($('#recentList'), records.slice(0, 8), settings);
+    if (!sleepOn) return;
+
+    const st = Wake.state(Store.all(), Fmt.ageMonths(settings.dob));
 
     const card = $('#wakeCard');
     card.classList.toggle('is-sleeping', st.sleeping);
@@ -87,14 +117,13 @@
       ? Math.min(1, st.elapsedMs / NAP_REFERENCE_MS)
       : Math.min(1, st.ratio ?? 0);
     $('#ringFill').style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - ratio);
-
-    renderStatusRow(settings);
-    renderToday(settings);
-    renderList($('#recentList'), records.slice(0, 8), settings);
   }
 
   function renderStatusRow(settings) {
-    $('#statusRow').innerHTML = Features.all().map(f => {
+    const shown = enabled().filter(f => f.statusLabel);
+    $('#statusRow').hidden = !shown.length;
+    $('#statusRow').style.setProperty('--cols', shown.length || 1);
+    $('#statusRow').innerHTML = shown.map(f => {
       const record = Store.latest(f.type, { completedOnly: Boolean(f.statusCompletedOnly) });
       return `<button class="stat" data-quick="${f.type}">
         <span class="stat-icon">${f.icon}</span>
@@ -107,8 +136,12 @@
 
   function renderToday(settings) {
     const totals = dayTotals(new Date());
-    $('#todaySummary').innerHTML = Features.all().map(f => {
-      const cell = f.todayCell?.(totals, settings);
+    const cells = enabled().filter(f => f.todayCell);
+    // Up to three across; four sit as a tidy 2×2 rather than three and a straggler.
+    $('#todaySummary').style.setProperty('--cols', cells.length === 4 ? 2 : Math.min(3, cells.length) || 1);
+    $('#todayTitle').hidden = !cells.length;
+    $('#todaySummary').innerHTML = cells.map(f => {
+      const cell = f.todayCell(totals, settings);
       if (!cell) return '';
       return `<div class="today-cell">
         <span>${cell.label}</span><b>${escapeHtml(String(cell.value))}</b>
@@ -137,7 +170,7 @@
   /* ── record lists ────────────────────────────────────────── */
   function renderList(container, records, settings) {
     if (!records.length) {
-      container.innerHTML = `<li class="empty">Nothing logged yet. Tap a button above to start.</li>`;
+      container.innerHTML = `<li class="empty">Nothing logged yet.</li>`;
       return;
     }
     container.innerHTML = records.map(r => {
@@ -151,7 +184,8 @@
           <span class="entry-title">${escapeHtml(title)}</span>
           <span class="entry-sub">${escapeHtml(detail)}${note}</span>
         </span>
-        <span class="entry-time">${live ? Fmt.duration(Date.now() - r.at) : Fmt.clock(r.at)}</span>
+        <span class="entry-time">${live ? Fmt.duration(Date.now() - r.at)
+          : feature.dateOnly ? Fmt.shortDate(r.at) : Fmt.clock(r.at)}</span>
       </button></li>`;
     }).join('');
   }
@@ -170,7 +204,7 @@
 
   function renderHistory() {
     const settings = Store.settings();
-    const records = Store.byType(historyFilter);
+    const records = historyFilter === 'all' ? visibleRecords() : Store.byType(historyFilter);
     const target = $('#historyList');
     if (!records.length) {
       target.innerHTML = `<p class="empty">No entries yet.</p>`;
@@ -186,7 +220,7 @@
 
     target.innerHTML = [...groups.values()].map(group => {
       const totals = dayTotals(new Date(group[0].at));
-      const summary = Features.all()
+      const summary = enabled()
         .map(f => f.todayCell?.(totals, settings))
         .filter(Boolean)
         .map(c => `${c.value} ${c.label.toLowerCase()}`)
@@ -212,19 +246,22 @@
       days.push({ date: d, ...dayTotals(d) });
     }
 
-    if (!days.some(d => d.feeds || d.diapers || d.sleepMs)) {
+    const on = type => Store.trackerOn(type);
+    if (!days.some(d => (on('feed') && d.feeds) || (on('diaper') && d.diapers) ||
+                        (on('sleep') && d.sleepMs) || (on('solids') && d.meals))) {
       $('#statsBody').innerHTML = `<p class="empty">Log a few days and trends will show up here.</p>`;
       return;
     }
 
     $('#statsBody').innerHTML = [
-      block('Sleep per day', days, 'sleep', d => d.sleepMs || 0, ms => Fmt.duration(ms)),
-      block('Feeds per day', days, 'feed', d => d.feeds || 0, n => `${n}`),
-      block('Diapers per day', days, 'diaper', d => d.diapers || 0, n => `${n}`),
-      days.some(d => d.feedMl)
-        ? block('Bottle volume per day', days, 'feed', d => d.feedMl || 0,
-                ml => Fmt.amount(ml, settings.units))
-        : '',
+      on('sleep') && block('Sleep per day', days, 'sleep', d => d.sleepMs || 0, ms => Fmt.duration(ms)),
+      on('feed') && block('Feeds per day', days, 'feed', d => d.feeds || 0, n => `${n}`),
+      on('feed') && days.some(d => d.feedMl) &&
+        block('Bottle volume per day', days, 'feed', d => d.feedMl || 0,
+              ml => Fmt.amount(ml, settings.units)),
+      on('diaper') && block('Diapers per day', days, 'diaper', d => d.diapers || 0, n => `${n}`),
+      on('solids') && days.some(d => d.meals) &&
+        block('Solid meals per day', days, 'solids', d => d.meals || 0, n => `${n}`),
     ].filter(Boolean).join('');
   }
 
@@ -254,10 +291,15 @@
     Sheet.open({
       type, record,
       onSave(fields, existing) {
-        if (existing) { Store.update(existing.id, fields); toast('Updated'); }
-        else { Store.add(fields); toast('Saved'); }
+        const saved = existing ? Store.update(existing.id, fields) : Store.add(fields);
+        const said = Features.get(type).afterSave?.(saved, Store.settings());
+        toast(said || (existing ? 'Updated' : 'Saved'));
       },
-      onDelete(existing) { Store.remove(existing.id); toast('Deleted'); },
+      onDelete(existing) {
+        Features.get(type).onDelete?.(existing);
+        Store.remove(existing.id);
+        toast('Deleted');
+      },
       onError(message) { toast(message); },
     });
   }
@@ -374,6 +416,9 @@
     setIfIdle($('#setName'), s.name);
     setIfIdle($('#setDob'), s.dob);
     setIfIdle($('#setUnits'), s.units);
+    setIfIdle($('#setSex'), s.sex);
+    setIfIdle($('#setGrowthUnits'), s.growthUnits);
+    renderTrackers();
     // Show what sync is really using. These fall back to config.js, so
     // displaying only the stored override made a working setup look blank.
     const effective = Sync.effective();
@@ -388,6 +433,39 @@
       : 'Everything is stored on this device only. Nothing is uploaded anywhere.';
     renderSyncStatus();
   }
+
+  const TRACKER_NOTES = {
+    feed: 'Bottle and breast feeds',
+    diaper: 'Wet and dirty changes',
+    sleep: 'Naps, nights and the wake-window ring',
+    solids: 'Meals, foods tried and allergens',
+    growth: 'Weight, length and head on the WHO chart',
+    milestone: 'Firsts, with a photo',
+  };
+
+  function renderTrackers() {
+    const el = $('#trackerList');
+    if (el.contains(document.activeElement)) return;
+    el.innerHTML = Features.all().map(f => `
+      <label class="tracker-row">
+        <span class="tracker-icon tracker-${f.type}" aria-hidden="true">${f.icon}</span>
+        <span class="tracker-text"><b>${f.label}</b><em>${TRACKER_NOTES[f.type] || ''}</em></span>
+        <input type="checkbox" class="switch" data-tracker="${f.type}"
+               ${Store.trackerOn(f.type) ? 'checked' : ''}>
+      </label>`).join('');
+  }
+
+  $('#trackerList').addEventListener('change', e => {
+    const box = e.target.closest('[data-tracker]');
+    if (!box) return;
+    const trackers = { ...Store.settings().trackers, [box.dataset.tracker]: box.checked };
+    if (!Features.types().some(t => trackers[t] !== false)) {
+      box.checked = true;
+      toast('Keep at least one tracker on.');
+      return;
+    }
+    Store.saveSettings({ trackers });
+  });
 
   /** Never overwrite a field the user is currently typing in. */
   function setIfIdle(el, value) {
@@ -431,6 +509,8 @@
   $('#setName').addEventListener('input', e => Store.saveSettings({ name: e.target.value.trim() }));
   $('#setDob').addEventListener('change', e => Store.saveSettings({ dob: e.target.value }));
   $('#setUnits').addEventListener('change', e => Store.saveSettings({ units: e.target.value }));
+  $('#setSex').addEventListener('change', e => Store.saveSettings({ sex: e.target.value }));
+  $('#setGrowthUnits').addEventListener('change', e => Store.saveSettings({ growthUnits: e.target.value }));
 
   // Changing where we sync to invalidates the pull cursor — start over.
   $('#setSyncUrl').addEventListener('change', e =>
@@ -498,7 +578,7 @@
 
   $('#exportCsv').addEventListener('click', () => {
     const settings = Store.settings();
-    const rows = [['type', 'start', 'end', 'duration_min', 'detail', `amount_${settings.units}`, 'note']];
+    const rows = [['type', 'start', 'end', 'duration_min', 'detail', `amount_${settings.units}`, 'note', 'more']];
     for (const r of [...Store.all()].reverse()) {
       const feature = Features.get(r.type);
       rows.push([
@@ -509,6 +589,7 @@
         feature.describe(r, settings).title,
         r.data.amount != null ? Fmt.fromMl(r.data.amount, settings.units) : '',
         r.note || '',
+        feature.describe(r, settings).detail || '',
       ]);
     }
     download(`nayla-log-${stamp()}.csv`,
@@ -556,13 +637,15 @@
     $('#babyName').textContent = s.name || 'Baby';
     $('#babyAge').textContent = Fmt.age(s.dob);
 
+    buildChrome();
     if (currentView === 'now') renderNow();
+    else if (currentView === 'growing') Growing.render($('#growingBody'), { renderList });
     else if (currentView === 'history') renderHistory();
     else if (currentView === 'stats') renderStats();
     else if (currentView === 'settings') renderSettings();
   }
 
-  buildChrome();
+  Growing.wire($('#growingBody'), render);
 
   // Hidden entirely where the browser can't do it, rather than offering a
   // button that does nothing.
@@ -578,6 +661,7 @@
   Store.onChange(render);
   render();
   Sync.start();
+  Photos.start();
   Install.start();
 
   if (invited) {

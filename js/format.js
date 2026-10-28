@@ -96,9 +96,79 @@ const Fmt = (() => {
 
   function round1(n) { return Math.round(n * 10) / 10; }
 
+  /* Growth is stored in kg and cm; 'imperial' shows lb and inches. */
+  const KG_PER_LB = 0.45359237;
+  const CM_PER_IN = 2.54;
+
+  function parsePositive(value) {
+    if (value === '' || value == null) return null;
+    const n = Number(String(value).replace(',', '.'));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  /** Form value -> kg / cm. */
+  function toKg(value, units) {
+    const n = parsePositive(value);
+    return n == null ? null : units === 'imperial' ? n * KG_PER_LB : n;
+  }
+  function toCm(value, units) {
+    const n = parsePositive(value);
+    return n == null ? null : units === 'imperial' ? n * CM_PER_IN : n;
+  }
+
+  /** kg / cm -> the number shown in a form field. */
+  function fromKg(kg, units) {
+    if (kg == null) return '';
+    return units === 'imperial' ? Math.round(kg / KG_PER_LB * 100) / 100 : Math.round(kg * 1000) / 1000;
+  }
+  function fromCm(cm, units) {
+    if (cm == null) return '';
+    return units === 'imperial' ? round1(cm / CM_PER_IN) : round1(cm);
+  }
+
+  /** "6.82 kg", or "15 lb 1 oz" — nobody says "15.06 lb" out loud. */
+  function weight(kg, units) {
+    if (kg == null) return '';
+    if (units === 'imperial') {
+      const oz = Math.round(kg / KG_PER_LB * 16);
+      return `${Math.floor(oz / 16)} lb ${oz % 16} oz`;
+    }
+    return `${Math.round(kg * 100) / 100} kg`;
+  }
+  function length(cm, units) {
+    if (cm == null) return '';
+    return units === 'imperial' ? `${round1(cm / CM_PER_IN)} in` : `${round1(cm)} cm`;
+  }
+
+  /** "12 Oct", with the year only when it isn't this one. */
+  function shortDate(ts) {
+    const d = new Date(ts);
+    const opts = { day: 'numeric', month: 'short' };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    return d.toLocaleDateString([], opts);
+  }
+
+  /** "4 months", "3 weeks" — her age on a given day, for milestones. */
+  function ageAt(dob, ts) {
+    if (!dob) return '';
+    const born = new Date(dob + 'T00:00:00');
+    if (isNaN(born)) return '';
+    const days = Math.floor((ts - born) / DAY);
+    if (days < 0) return '';
+    if (days < 14) return `${days} day${days === 1 ? '' : 's'}`;
+    if (days < 91) { const w = Math.floor(days / 7); return `${w} weeks`; }
+    const d = new Date(ts);
+    let months = (d.getFullYear() - born.getFullYear()) * 12 + (d.getMonth() - born.getMonth());
+    if (d.getDate() < born.getDate()) months--;
+    if (months < 24) return `${months} month${months === 1 ? '' : 's'}`;
+    const y = Math.floor(months / 12), m = months % 12;
+    return m ? `${y} yr ${m} mo` : `${y} years`;
+  }
+
   return {
     MIN, HOUR, DAY,
     duration, ago, clock, dayKey, dayLabel, age, ageMonths,
     amount, toMl, fromMl,
+    toKg, toCm, fromKg, fromCm, weight, length, shortDate, ageAt,
   };
 })();
