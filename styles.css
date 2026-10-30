@@ -634,6 +634,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 .tab.is-on { color: var(--text); font-weight: 550; }
 .tab[hidden] { display: none; }
+
+/* Home carries the name in its photo, so the plain header steps aside. */
+body[data-view="home"] .topbar { display: none; }
 .tab.is-on span { filter: none; opacity: 1; background: var(--surface-2); }
 
 /* ── bottom sheet ──────────────────────────────────────────── */
@@ -1115,6 +1118,118 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
+
+/* ── Home ──────────────────────────────────────────────────── */
+#view-home { padding-top: calc(var(--safe-t) + 18px); }
+
+.hero {
+  position: relative;
+  height: 300px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: linear-gradient(150deg, var(--sleep-soft) 0%, var(--feed-soft) 55%, var(--growth-soft) 100%);
+}
+.hero-img {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.hero-img[hidden] { display: none; }
+/* Only a photo needs the shade that keeps white text readable. */
+.hero-shade { position: absolute; inset: 0; pointer-events: none; }
+.hero.has-photo .hero-shade {
+  background: linear-gradient(to top, rgba(15, 13, 10, .62) 0%, rgba(15, 13, 10, .18) 42%, transparent 64%);
+}
+.hero-text { position: absolute; left: 22px; right: 80px; bottom: 20px; }
+.hero-name {
+  font-family: var(--display);
+  font-size: 40px; font-weight: 600;
+  letter-spacing: -.045em; line-height: 1.02;
+  color: var(--text);
+}
+.hero-age { margin: 4px 0 0; font-size: 15px; color: var(--text-soft); }
+.hero.has-photo .hero-name { color: #fff; }
+.hero.has-photo .hero-age { color: rgba(255, 255, 255, .86); }
+.hero-add {
+  position: absolute; left: 22px; right: 22px; top: 22px;
+  margin: 0; font-size: 13px; color: var(--text-soft);
+}
+.hero-add[hidden] { display: none; }
+.hero-cam {
+  position: absolute; right: 16px; bottom: 18px;
+  width: 48px; height: 48px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform .14s cubic-bezier(.3,.8,.35,1);
+}
+.hero-cam:active { transform: scale(.94); }
+.hero-cam svg { width: 21px; height: 21px; }
+
+.alerts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.alert {
+  position: relative;
+  display: flex; gap: 13px; align-items: flex-start;
+  padding: 15px 46px 15px 15px;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+.alert-warn { background: var(--warn-soft); }
+.alert-joy  { background: var(--milestone-soft); }
+.alert-calm { padding-right: 15px; }
+.alert-icon {
+  flex: 0 0 38px; width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-size: 18px; line-height: 1;
+}
+.alert-warn .alert-icon, .alert-joy .alert-icon { background: var(--surface); }
+.alert-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding-top: 1px; }
+.alert-text b { font-size: 15px; font-weight: 600; letter-spacing: -.022em; line-height: 1.3; }
+.alert-text span { font-size: 13px; color: var(--text-soft); line-height: 1.5; }
+.alert-act { align-self: flex-start; margin-top: 10px; }
+.alert-warn .alert-act { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.alert-x {
+  position: absolute; top: 6px; right: 6px;
+  width: 40px; height: 40px;
+  border: 0; border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+.alert-x:active { background: var(--surface-2); }
+
+.sum-grid { display: grid; grid-template-columns: repeat(var(--cols, 2), 1fr); gap: 10px; }
+.sum-grid[hidden] { display: none; }
+.sum-tile {
+  position: relative;
+  padding: 15px 15px 16px 19px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+/* A thin bar of the tracker's colour carries identity; the text stays ink. */
+.sum-tile::before {
+  content: ''; position: absolute; left: 0; top: 14px; bottom: 14px;
+  width: 4px; border-radius: 0 4px 4px 0;
+  background: var(--surface-3);
+}
+.sum-feed::before   { background: var(--feed); }
+.sum-sleep::before  { background: var(--sleep); }
+.sum-diaper::before { background: var(--diaper); }
+.sum-solids::before { background: var(--solids); }
+.sum-label { font-size: 11px; font-weight: 500; color: var(--text-dim); }
+.sum-value {
+  display: block; margin-top: 4px;
+  font-family: var(--display);
+  font-size: 24px; font-weight: 600; letter-spacing: -.04em; line-height: 1.15;
+}
+.sum-trend { font-size: 15px; font-weight: 500; color: var(--text-dim); margin-left: 2px; }
+.sum-note { display: block; font-style: normal; font-size: 11.5px; color: var(--text-dim); margin-top: 3px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001s !important; transition-duration: .001s !important; }

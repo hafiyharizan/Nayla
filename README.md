@@ -30,7 +30,26 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
 
 ## What it does
 
-**Now** — the home screen.
+**Home** — where the app opens.
+- A header photo with her name and age. Tap 📷 to pick one; it stays on that phone
+  and is never uploaded. Until one is picked, the newest milestone photo stands in.
+  **Settings → Baby → Remove home photo** takes it away again.
+- **Right now** — up to five alerts worked out from the log, most urgent first:
+  awake past her wake window (with a **Start sleep** button), a sleep left running,
+  a first allergen to watch for the next two hours, a longer gap than usual since the
+  last feed, fewer wet diapers than usual late in the day, a reaction noted, her
+  month-birthdays, and gentle suggestions (starting solids around 6 months, common
+  allergens not tried yet, measurements due). Each can be dismissed — for the day,
+  or a week for suggestions — and only trackers that are on produce alerts. With
+  nothing to say it says **All calm**.
+- **Last 24 hours** — feeds, sleep, diapers and solid meals over the past 24 hours,
+  against her own 7-day average, with ↑ or ↓ when it's clearly more or less.
+- **Last 7 days** — the per-day charts that used to be the Stats tab.
+
+The app always opens on Home; a reload (such as the one after an update) keeps you on
+the tab you were using.
+
+**Now** — the quick-logging screen.
 - A ring showing how long Nayla has been awake, filling toward the age-appropriate
   wake window. It turns blue while she's asleep and red once she's past the window.
 - Time since the last feed, last diaper, and the length of the last sleep. Tap any
@@ -51,9 +70,6 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
 
 **History** — every entry grouped by day, with a per-day summary line, filterable by
 type. Tap an entry to edit or delete it.
-
-**Stats** — sleep, feeds, diapers, bottle volume and solid meals per day over the
-last 7 days, with 7-day averages.
 
 **Settings** — name, date of birth (which drives the wake-window guidance, the growth
 chart and the age in the header), ml/oz, girl/boy chart, kg+cm or lb+in, which
@@ -210,7 +226,7 @@ A JSON backup holds the milestones but not the photos, nor the photo key.
 ## Layout
 
 ```
-index.html            markup for all five views plus the entry sheet
+index.html            markup for the five tabs plus the entry sheet
 styles.css            design tokens, light + dark, mobile-first
 js/config.js          where to sync to (empty = local only)
 js/format.js          durations, clock times, day labels, ml/oz, kg/lb, cm/in
@@ -224,6 +240,7 @@ js/pair.js            pairing by scan or link
 js/wake.js            wake-window ranges and current awake/asleep state
 js/sheet.js           the add/edit sheet, rendered from a feature's fields
 js/growing.js         the Growing tab: growth chart, milestones, foods tried
+js/home.js            the Home tab: header photo, alerts, last-24-hours summary
 js/app.js             views, live timers, stats, import/export
 sw.js                 offline caching
 supabase/             the sync backend: a records table, a photos table

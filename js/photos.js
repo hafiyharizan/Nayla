@@ -198,6 +198,17 @@ const Photos = (() => {
     return id;
   }
 
+  /** A photo that is only ever for this phone (the Home header). Sync
+   *  leaves it alone: it is never uploaded and never swept. */
+  function setLocal(id, dataUrl) {
+    memory.set(id, { data: dataUrl, own: true });
+    return keep({ id, own: true, local: true, createdAt: Date.now() }, dataUrl);
+  }
+
+  function removeLocal(id) {
+    return drop(id);
+  }
+
   /* ── showing one ─────────────────────────────────────────── */
 
   /** A photo's data URL, or null. `shared` is what the milestone says: a copy
@@ -290,6 +301,7 @@ const Photos = (() => {
       const reachable = Sync.enabled() && !serverMissing && navigator.onLine !== false;
 
       for (const row of rows) {
+        if (row.local) continue;         // the Home photo: never shared, never swept
         const referenced = want.has(row.id);
         const shared = want.get(row.id) === true;
 
@@ -365,7 +377,7 @@ const Photos = (() => {
   }
 
   return {
-    fromFile, add, get, show, sync, start,
+    fromFile, add, get, show, sync, start, setLocal, removeLocal,
     newKey, validKey, canShare, sendable, send,
   };
 })();

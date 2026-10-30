@@ -12,10 +12,19 @@
   Store.init();
 
   /* ── shell ───────────────────────────────────────────────── */
-  let currentView = 'now';
+  /* Opens on Home. The tab is remembered for this browser session only, so
+   * a reload — including the one after an app update — keeps you where you
+   * were, while opening the app afresh always starts at Home. */
+  const VIEW_KEY = 'nayla.view';
+  const VIEWS = ['home', 'now', 'growing', 'history', 'settings'];
+  let currentView = (() => {
+    try { const v = sessionStorage.getItem(VIEW_KEY); return VIEWS.includes(v) ? v : 'home'; }
+    catch { return 'home'; }
+  })();
 
   function showView(name) {
     currentView = name;
+    try { sessionStorage.setItem(VIEW_KEY, name); } catch { /* fine */ }
     document.querySelectorAll('.view').forEach(v => { v.hidden = v.dataset.view !== name; });
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-on', t.dataset.tab === name));
     window.scrollTo(0, 0);
@@ -71,7 +80,8 @@
 
     const growingTab = document.querySelector('.tab[data-tab="growing"]');
     growingTab.hidden = !Growing.anyOn();
-    if (growingTab.hidden && currentView === 'growing') currentView = 'now';
+    if (growingTab.hidden && currentView === 'growing') currentView = 'home';
+    document.body.dataset.view = currentView;
     document.querySelectorAll('.view').forEach(v => { v.hidden = v.dataset.view !== currentView; });
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-on', t.dataset.tab === currentView));
   }
@@ -322,7 +332,7 @@
     }
   });
 
-  $('#sleepToggle').addEventListener('click', () => {
+  function toggleSleep() {
     // Deliberately Wake's view, not Store's: a sleep left running for days is
     // not the one this button should close.
     const active = Wake.state(Store.all(), Fmt.ageMonths(Store.settings().dob)).entry;
@@ -333,7 +343,9 @@
       Store.add({ type: 'sleep', at: Date.now(), end: null, data: {} });
       toast('Sleep started');
     }
-  });
+  }
+
+  $('#sleepToggle').addEventListener('click', toggleSleep);
 
   /* ── speaking instead of tapping ─────────────────────────── */
   let pendingVoice = null;
@@ -418,6 +430,7 @@
     setIfIdle($('#setUnits'), s.units);
     setIfIdle($('#setSex'), s.sex);
     setIfIdle($('#setGrowthUnits'), s.growthUnits);
+    Home.hasPickedHero().then(has => { $('#homePhotoRow').hidden = !has; });
     renderTrackers();
     // Show what sync is really using. These fall back to config.js, so
     // displaying only the stored override made a working setup look blank.
@@ -639,14 +652,27 @@
     $('#babyAge').textContent = Fmt.age(s.dob);
 
     buildChrome();
-    if (currentView === 'now') renderNow();
+    if (currentView === 'home') { Home.render(); renderStats(); }
+    else if (currentView === 'now') renderNow();
     else if (currentView === 'growing') Growing.render($('#growingBody'), { renderList });
     else if (currentView === 'history') renderHistory();
-    else if (currentView === 'stats') renderStats();
     else if (currentView === 'settings') renderSettings();
   }
 
   Growing.wire($('#growingBody'), render);
+  Home.wire({
+    openSheet: type => openSheet(type),
+    openEntry: id => { const r = Store.get(id); if (r) openSheet(r.type, r); },
+    toggleSleep,
+    rerender: render,
+    toast,
+  });
+
+  $('#homePhotoClear').addEventListener('click', async () => {
+    await Home.clearHero();
+    $('#homePhotoRow').hidden = true;
+    toast('Home photo removed');
+  });
 
   // Hidden entirely where the browser can't do it, rather than offering a
   // button that does nothing.

@@ -46,6 +46,7 @@ async function phone() {
   p.on('pageerror', e => errs.push(e.message));
   await p.addInitScript(stub);
   await p.goto('http://localhost:4198/index.html');
+  await p.click('.tab[data-tab="now"]');   // the app opens on Home
   await p.evaluate(() => {
     localStorage.clear();
     localStorage.setItem('nayla.settings.v1', JSON.stringify({
@@ -119,6 +120,7 @@ const p2 = await ctx2.newPage();
 p2.on('pageerror', e => errs.push(e.message));
 await p2.addInitScript(`delete window.SpeechRecognition; delete window.webkitSpeechRecognition;`);
 await p2.goto('http://localhost:4198/index.html');
+await p2.click('.tab[data-tab="now"]');   // the app opens on Home
 await p2.waitForTimeout(400);
 ok('no button where the browser cannot do voice', !(await p2.isVisible('#micBtn')));
 await ctx2.close();

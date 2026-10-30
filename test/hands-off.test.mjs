@@ -53,6 +53,7 @@ async function phone(label) {
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push(`${label}: ${e.message}`));
   await p.goto('http://localhost:4197/index.html');
+  await p.click('.tab[data-tab="now"]');   // the app opens on Home
   await p.evaluate(c => {
     localStorage.clear();
     localStorage.setItem('nayla.settings.v1', JSON.stringify({
