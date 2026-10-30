@@ -27,9 +27,13 @@ const Store = (() => {
     name: 'Nayla',
     dob: '2026-06-04',
     units: 'ml',
+    growthUnits: 'metric',     // 'metric' (kg, cm) or 'imperial' (lb, in)
+    sex: 'girl',               // picks the WHO growth chart
+    trackers: {},              // { solids: false, … } — anything missing is on
     syncUrl: '',
     syncKey: '',
     syncCode: '',
+    photoKey: '',              // encrypts shared photos; travels only in the pairing QR
     lastPulledAt: 0,
     lastFullPullAt: 0,
   };
@@ -218,6 +222,10 @@ const Store = (() => {
 
     settings() { return settings; },
 
+    /** Whether this phone shows a tracker. Turning one off hides it — the
+     *  entries stay, keep syncing, and come back when it is turned on. */
+    trackerOn(type) { return settings.trackers?.[type] !== false; },
+
     saveSettings(patch) {
       const rekeyed = 'syncCode' in patch && patch.syncCode !== settings.syncCode;
       settings = { ...settings, ...patch };
@@ -260,9 +268,9 @@ const Store = (() => {
     },
   };
 
-  /** Settings minus the sync credentials — backups shouldn't carry the secret. */
+  /** Settings minus the sync credentials — backups shouldn't carry the secrets. */
   function publicSettings() {
-    const { syncUrl, syncKey, syncCode, lastPulledAt, lastFullPullAt, ...rest } = settings;
+    const { syncUrl, syncKey, syncCode, photoKey, lastPulledAt, lastFullPullAt, ...rest } = settings;
     return rest;
   }
 

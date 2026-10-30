@@ -57,6 +57,10 @@ Deliberately a separate step, not something that happens on boot:
 ```sh
 docker compose exec -T db psql -U postgres -d nayla -v ON_ERROR_STOP=1 \
   < ../supabase/migrations/0001_records.sql
+docker compose exec -T db psql -U postgres -d nayla -v ON_ERROR_STOP=1 \
+  < ../supabase/migrations/0003_photos.sql
+docker compose exec -T db psql -U postgres -d nayla -v ON_ERROR_STOP=1 \
+  < ../supabase/migrations/0004_encrypted_photos.sql
 ```
 
 Re-running it is safe. Future schema changes are another numbered file in

@@ -246,6 +246,8 @@ const Sync = (() => {
 
   return {
     start, run, status, enabled, newPairingCode,
+    /** One call to a server function, for things that aren't records (photos). */
+    call: rpc,
     /** What sync is actually using, after config.js fallbacks. */
     effective: config,
     onChange(fn) { listeners.add(fn); },
