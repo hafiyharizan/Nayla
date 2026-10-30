@@ -40,7 +40,8 @@ const Growing = (() => {
 
     const list = el.querySelector('#growthList');
     if (list) renderList(list, Store.byType('growth'), settings);
-    el.querySelectorAll('img[data-photo]').forEach(img => Photos.show(img, img.dataset.photo));
+    el.querySelectorAll('img[data-photo]').forEach(img =>
+      Photos.show(img, img.dataset.photo, { shared: img.dataset.shared === 'true' }));
   }
 
   function head(title, type, action) {
@@ -230,7 +231,9 @@ const Growing = (() => {
     const cards = records.map(r => `
       <li><button class="m-card" data-entry="${r.id}">
         ${r.data.photo
-          ? `<span class="m-photo" data-photo-wrap><img alt="" data-photo="${escapeHtml(r.data.photo)}" hidden></span>`
+          ? `<span class="m-photo" data-photo-wrap>
+               <img alt="" data-photo="${escapeHtml(r.data.photo)}" data-shared="${r.data.photoShared === true}" hidden>
+               <span class="m-elsewhere">📷 On the other phone</span></span>`
           : `<span class="m-photo m-photo-none" aria-hidden="true">⭐</span>`}
         <span class="m-text">
           <span class="m-title">${escapeHtml(r.data.title || 'Milestone')}</span>

@@ -43,6 +43,8 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
   her line drawn over the WHO growth chart (birth to two years). Tap a tile to switch
   the chart, tap a dot to read it.
 - **Milestones:** firsts with a date, her age at the time, and an optional photo.
+  A photo stays on the phone that took it unless you switch on **Share photo with
+  the other phone** for that milestone — see [Photos](#photos).
 - **Foods tried:** every food she has had, when she first had it, how it went, any
   reaction noted — and which of the nine common allergens she has had so far. Logging
   the first taste of one shows a reminder to keep an eye on her for a couple of hours.
@@ -180,10 +182,30 @@ Either way, keep backups. **Settings → Export JSON** is a full backup and **Im
 restores it (also how you move to a new phone); **Export CSV** is for looking at the
 numbers in a spreadsheet. Clearing the browser's site data deletes the local log.
 
-Milestone photos are the exception: they are too big for the log, so each phone keeps
-them in IndexedDB, and with sync on they go to their own table on the server
-(`supabase/migrations/0003_photos.sql`). A JSON backup holds the milestones but not
-the photos. Photos are shrunk to 1280px before they're stored — 150–300 KB each.
+### Photos
+
+Milestone photos are private by default: they stay on the phone that took them, in
+IndexedDB, shrunk to 1280px (150–300 KB each). The other phone sees the milestone,
+with "On the other phone" where the photo would be.
+
+Switch on **Share photo with the other phone** on a milestone and that one photo is
+encrypted on the phone (AES-GCM, 256-bit) before it uploads. The key is not the
+pairing code — the pairing code goes to the server on every sync — but a separate
+random key that only ever travels inside the pairing QR code, in the URL fragment
+browsers never send anywhere. So the server, and whoever runs it, holds only
+scrambled data; and since `0004_encrypted_photos.sql` the server refuses anything
+that isn't encrypted.
+
+Phones paired before this existed have no key yet: open **Settings → Sync → Add
+another phone** on one and scan it with the other, once.
+
+Which photos are on the server follows the milestones themselves. Unsharing a
+photo, replacing it, deleting the milestone, **Delete all**, and a new pairing code
+all take the old copy off the server, and the other phone drops its copy once a
+photo is no longer shared. **Send…** on a photo hands it to the phone's own share
+sheet (WhatsApp, AirDrop) for sending without the server at all.
+
+A JSON backup holds the milestones but not the photos, nor the photo key.
 
 ## Layout
 
@@ -196,7 +218,7 @@ js/who.js             WHO growth standards (0–24 months) and percentile maths
 js/features.js        the feature registry — what a feed, a meal or a milestone IS
 js/store.js           records + settings, persisted to localStorage
 js/sync.js            push/pull/merge against the backend
-js/photos.js          milestone photos: shrink, keep in IndexedDB, sync separately
+js/photos.js          milestone photos: kept on the phone; shared ones encrypted
 js/qr.js              a small QR encoder, for the pairing code
 js/pair.js            pairing by scan or link
 js/wake.js            wake-window ranges and current awake/asleep state

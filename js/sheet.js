@@ -83,9 +83,13 @@ const Sheet = (() => {
     }
 
     if (field.input === 'toggle') {
-      return `<label class="toggle-field">
-        <span><b>${escapeHtml(field.label)}</b>${field.detail ? `<em>${escapeHtml(field.detail)}</em>` : ''}</span>
-        <input type="checkbox" class="switch" name="${field.name}" ${value ? 'checked' : ''}></label>`;
+      // A toggle can depend on the moment — sharing needs a paired phone.
+      const st = field.state?.(settings) || {};
+      const detail = st.detail ?? field.detail;
+      return `<label class="toggle-field ${st.disabled ? 'is-disabled' : ''}">
+        <span><b>${escapeHtml(field.label)}</b>${detail ? `<em>${escapeHtml(detail)}</em>` : ''}</span>
+        <input type="checkbox" class="switch" name="${field.name}"
+               ${value && !st.disabled ? 'checked' : ''} ${st.disabled ? 'disabled' : ''}></label>`;
     }
 
     /* Chips for what she has had before, plus a box for anything new. */
@@ -109,11 +113,15 @@ const Sheet = (() => {
     if (field.input === 'photo') {
       return `<div class="field photo-field" data-photo-field="${field.name}">
         <span>${escapeHtml(field.label)}</span>
-        <div class="photo-box">
-          <img class="photo-preview" alt="" ${value ? `data-photo="${escapeHtml(value)}"` : 'hidden'}>
+        <div class="photo-box" data-photo-wrap>
+          <img class="photo-preview" alt="" ${value
+            ? `data-photo="${escapeHtml(value)}" data-shared="${values.sharePhoto ? 'true' : 'false'}"` : 'hidden'}>
+          <p class="photo-elsewhere">The photo is on the other phone — it hasn't been shared to this one.</p>
           <div class="photo-actions">
             <label class="btn photo-pick"><span data-photo-pick-label>${value ? 'Change photo' : 'Add a photo'}</span>
               <input type="file" accept="image/*" data-photo-input hidden></label>
+            ${Photos.sendable()
+              ? `<button type="button" class="btn" data-photo-send ${value ? '' : 'hidden'}>Send…</button>` : ''}
             <button type="button" class="btn btn-ghost" data-photo-remove ${value ? '' : 'hidden'}>Remove</button>
           </div>
         </div>
@@ -232,7 +240,8 @@ const Sheet = (() => {
     pendingPhoto = null;
     photoBusy = false;
     fields.innerHTML = renderFields(Features.fields(options.type, settings), values, settings);
-    fields.querySelectorAll('img[data-photo]').forEach(img => Photos.show(img, img.dataset.photo));
+    fields.querySelectorAll('img[data-photo]').forEach(img =>
+      Photos.show(img, img.dataset.photo, { shared: img.dataset.shared === 'true' }));
     deleteBtn.hidden = !options.record;
     backdrop.hidden = false;
     document.body.style.overflow = 'hidden';
@@ -262,8 +271,22 @@ const Sheet = (() => {
       pendingPhoto = null;
       box.querySelector('input[type="hidden"]').value = '';
       box.querySelector('.photo-preview').hidden = true;
+      box.querySelector('[data-photo-wrap]').classList.remove('is-missing');
       box.querySelector('[data-photo-pick-label]').textContent = 'Add a photo';
       remove.hidden = true;
+      const send = box.querySelector('[data-photo-send]');
+      if (send) send.hidden = true;
+      return;
+    }
+
+    // Straight to WhatsApp, AirDrop and the like — never through our server.
+    const send = e.target.closest('[data-photo-send]');
+    if (send) {
+      const box = send.closest('[data-photo-field]');
+      const preview = box.querySelector('.photo-preview');
+      const url = pendingPhoto || (!preview.hidden && preview.src);
+      if (url) Photos.send(url, form.elements.title?.value || 'Milestone');
+      else ctx?.onError?.('That photo is on the other phone.');
       return;
     }
 
@@ -300,6 +323,9 @@ const Sheet = (() => {
       box.querySelector('input[type="hidden"]').value = 'new';
       box.querySelector('[data-photo-pick-label]').textContent = 'Change photo';
       box.querySelector('[data-photo-remove]').hidden = false;
+      box.querySelector('[data-photo-wrap]').classList.remove('is-missing');
+      const send = box.querySelector('[data-photo-send]');
+      if (send) send.hidden = false;
     } catch (err) {
       console.warn(err);
       ctx?.onError?.("Couldn't read that photo — try another one.");

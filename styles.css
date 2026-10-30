@@ -972,6 +972,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 .photo-actions { display: flex; gap: 8px; align-items: center; }
 .photo-pick { display: inline-flex; align-items: center; }
 .photo-field.is-busy .photo-pick { opacity: .5; pointer-events: none; }
+.photo-elsewhere { display: none; margin: 0; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.photo-box.is-missing .photo-elsewhere { display: block; }
+.toggle-field.is-disabled { cursor: default; }
+.toggle-field.is-disabled b { color: var(--text-soft); }
+.switch:disabled { opacity: .45; cursor: default; }
 
 /* ── settings: trackers ────────────────────────────────────── */
 .tracker-list { display: flex; flex-direction: column; }
@@ -1064,8 +1069,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   background: var(--milestone-soft);
 }
 .m-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.m-photo img[hidden] { display: none; }
 .m-photo.is-loading { animation: shimmer 1.4s ease-in-out infinite; }
 @keyframes shimmer { 50% { opacity: .55; } }
+.m-elsewhere { display: none; }
+.m-photo.is-missing { display: grid; place-items: center; }
+.m-photo.is-missing .m-elsewhere { display: block; font-size: 12px; color: var(--text-soft); padding: 0 10px; text-align: center; }
 .m-photo-none { display: grid; place-items: center; font-size: 26px; aspect-ratio: 2 / 1; }
 .m-text { display: block; padding: 11px 13px 13px; }
 .m-title { display: block; font-size: 14.5px; font-weight: 500; letter-spacing: -.02em; line-height: 1.3; }

@@ -35,8 +35,8 @@ watch it appear on the other within a minute (or tap **Sync now**).
 ### Setting up a different project from scratch
 
 1. Create a project (the free tier is ample — the log is kilobytes).
-2. Run `migrations/0001_records.sql` and then `migrations/0003_photos.sql` in the
-   SQL editor (`0002_quick_log.sql` too, if you use the Siri Shortcuts), or
+2. Run `migrations/0001_records.sql`, `0003_photos.sql` and `0004_encrypted_photos.sql`
+   in the SQL editor (`0002_quick_log.sql` too, if you use the Siri Shortcuts), or
    `supabase db push` if you use the CLI.
 3. In the app: **Settings → Sync**, and fill in
    - **Server URL** — `https://<project-ref>.supabase.co`
@@ -59,14 +59,18 @@ Moving the data across is `pg_dump` on the old side and `psql` on the new one.
 
 ## Milestone photos
 
-`0003_photos.sql` adds a second table, `nayla.photos`, for milestone photos — they're
-far too big to travel inside a record. It follows the same rules as the records
-table: no direct access, and two `security definer` functions (`nayla_photo_put`,
-`nayla_photo_get`) that demand the pairing code. A photo is stored once and fetched
-by each other phone the first time it shows it.
+`0003_photos.sql` adds a second table, `nayla.photos`, for the milestone photos a
+family chooses to share — they're far too big to travel inside a record. It follows
+the same rules as the records table: no direct access, and two `security definer`
+functions (`nayla_photo_put`, `nayla_photo_get`) that demand the pairing code.
 
-The app copes without it: until it's applied, photos stay on the phone that took
-them, and upload on their own once it is.
+`0004_encrypted_photos.sql` makes the table ciphertext-only. Shared photos are
+encrypted on the phone with a key that travels only in the pairing QR code, so the
+server can't read them, and `nayla_photo_put` now refuses anything that isn't in
+the encrypted `enc1:` format.
+
+The app copes without either: until they're applied, photos stay on the phone that
+took them, and shared ones upload on their own once they are.
 
 ## How the schema is meant to be changed
 

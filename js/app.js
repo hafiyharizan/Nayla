@@ -546,7 +546,8 @@
                  'phone stops syncing until you show them the new code. To add a phone, you ' +
                  'do not need this — just scan the code you already have.')) return;
     const code = Sync.newPairingCode();
-    Store.saveSettings({ syncCode: code, lastPulledAt: 0 });
+    // A new code is for cutting phones off, so the photo key goes with it.
+    Store.saveSettings({ syncCode: code, photoKey: Photos.newKey(), lastPulledAt: 0 });
     $('#setSyncCode').value = code;
     toast('New pairing code');
   });
@@ -653,10 +654,15 @@
 
   // Opened from a pairing link: adopt the code before the first render, so
   // she never sees an unpaired screen that then changes under her.
-  const invited = Pair.claimFromUrl();
-  if (invited && invited !== Store.settings().syncCode) {
-    Store.saveSettings({ syncCode: invited, lastPulledAt: 0 });
+  /** Take on the code and photo key from a pairing link. */
+  function adopt(invite) {
+    const s = Store.settings();
+    if (invite.code !== s.syncCode) Store.saveSettings({ syncCode: invite.code, lastPulledAt: 0 });
+    if (invite.key && invite.key !== s.photoKey) Store.saveSettings({ photoKey: invite.key });
   }
+
+  const invited = Pair.claimFromUrl();
+  if (invited) adopt(invited);
 
   Store.onChange(render);
   render();
@@ -673,11 +679,9 @@
   // fragment, which is not a page load — app startup never runs, and without
   // this the link would appear to do nothing at all.
   window.addEventListener('hashchange', () => {
-    const code = Pair.claimFromUrl();
-    if (!code) return;
-    if (code !== Store.settings().syncCode) {
-      Store.saveSettings({ syncCode: code, lastPulledAt: 0 });
-    }
+    const invite = Pair.claimFromUrl();
+    if (!invite) return;
+    adopt(invite);
     toast('Paired — getting the latest entries');
     Sync.run();
   });

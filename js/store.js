@@ -33,6 +33,7 @@ const Store = (() => {
     syncUrl: '',
     syncKey: '',
     syncCode: '',
+    photoKey: '',              // encrypts shared photos; travels only in the pairing QR
     lastPulledAt: 0,
     lastFullPullAt: 0,
   };
@@ -267,9 +268,9 @@ const Store = (() => {
     },
   };
 
-  /** Settings minus the sync credentials — backups shouldn't carry the secret. */
+  /** Settings minus the sync credentials — backups shouldn't carry the secrets. */
   function publicSettings() {
-    const { syncUrl, syncKey, syncCode, lastPulledAt, lastFullPullAt, ...rest } = settings;
+    const { syncUrl, syncKey, syncCode, photoKey, lastPulledAt, lastFullPullAt, ...rest } = settings;
     return rest;
   }
 

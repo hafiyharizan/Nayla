@@ -12,7 +12,7 @@
  *   tally / todayCell   how it contributes to the daily summary
  *   quick            gets a big tile under "Log something" (the everyday ones)
  *   dateOnly         a day, not a moment — lists show the date, not the clock
- *   onDelete         clean-up when an entry goes (a milestone's photo)
+ *   onDelete         clean-up when an entry goes
  *   afterSave        optional message to show instead of plain "Saved"
  *
  * Adding a feature means adding an entry here. History, the edit sheet,
@@ -433,6 +433,16 @@ const Features = (() => {
         } },
       { name: 'at', input: 'date', label: 'When' },
       { name: 'photo', input: 'photo', label: 'Photo (optional)' },
+      /* Off unless chosen: a photo stays on this phone by default. */
+      { name: 'sharePhoto', input: 'toggle', label: 'Share photo with the other phone',
+        state() {
+          const can = Photos.canShare();
+          if (can === 'unpaired') return { disabled: true,
+            detail: 'Pair a phone first (Settings → Sync). Until then photos stay on this phone.' };
+          if (can === 'no-key') return { disabled: true,
+            detail: 'One-time step: on this phone open Settings → Sync → Add another phone, and scan it with the other phone.' };
+          return { detail: 'Encrypted on this phone first — only your paired phones can open it, not the server.' };
+        } },
       { name: 'note', input: 'textarea', label: 'Note (optional)' },
     ],
 
@@ -441,6 +451,7 @@ const Features = (() => {
         title: record?.data.title ?? '',
         at: record?.at ?? Date.now(),
         photo: record?.data.photo ?? null,
+        sharePhoto: record?.data.photoShared === true,
         note: record?.note ?? '',
       };
     },
@@ -452,19 +463,17 @@ const Features = (() => {
       const photo = v.photo || {};
       if (photo.dataUrl) data.photo = Photos.add(photo.dataUrl);
       else if (photo.keep) data.photo = photo.keep;
-      // A replaced or removed photo leaves nothing pointing at it.
-      if (photo.original && photo.original !== data.photo) Photos.remove(photo.original);
+      // A replaced or removed photo is swept up by Photos.sync — nothing
+      // points at it any more.
+      if (data.photo && v.sharePhoto) data.photoShared = true;
       return { at: v.at, end: null, note: v.note, data };
     },
 
     describe(record, settings) {
       const age = Fmt.ageAt(settings.dob, record.at);
-      const bits = [age && `at ${age}`, record.data.photo && 'photo'].filter(Boolean);
+      const photo = record.data.photo && (record.data.photoShared ? 'shared photo' : 'photo');
+      const bits = [age && `at ${age}`, photo].filter(Boolean);
       return { title: record.data.title || 'Milestone', detail: bits.join(' · ') };
-    },
-
-    onDelete(record) {
-      if (record.data.photo) Photos.remove(record.data.photo);
     },
   };
 

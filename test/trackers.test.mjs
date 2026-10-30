@@ -1,7 +1,7 @@
 /* Solids, growth, milestones, and turning trackers on and off.
  *
  * Drives real Chromium pages against a static server plus a mock of the
- * sync functions and the photo functions from 0003_photos.sql. The photo
+ * sync functions and the photo functions from 0003/0004. The photo
  * functions can be switched off, to check a server without that migration
  * keeps photos on the phone rather than breaking anything.
  */
@@ -39,7 +39,8 @@ const rpc = {
     assertCode(p_code);
     if (p_data == null) photos.delete(`${p_code}\0${p_id}`);
     else {
-      if (!String(p_data).startsWith('data:image/')) throw new Error('not an image');
+      // Mirrors 0004: the server only ever accepts ciphertext.
+      if (!String(p_data).startsWith('enc1:')) throw new Error('photos must be encrypted on the phone');
       photos.set(`${p_code}\0${p_id}`, p_data);
     }
     return null;
@@ -267,54 +268,147 @@ async function pngBuffer(p, color) {
   await ctx.close();
 }
 
-/* ── 4. milestones and photos between two phones ──────────── */
+/* ── 4. photos: private by default, shared only encrypted ─── */
 {
   const code = 'c'.repeat(32);
-  const dad = await phone('dad', { syncCode: code });
-  const mum = await phone('mum', { syncCode: code });
+  // Both photo work and the log's sync are debounced; this waits them out.
+  const settle = async p => {
+    await p.evaluate(async () => {
+      await Sync.run();
+      await new Promise(r => setTimeout(r, 900));
+      await Photos.sync();
+    });
+    await p.waitForTimeout(150);
+  };
+  const shareSwitch = p => p.locator('input[name="sharePhoto"]');
+  const onServer = id => photos.get(`${code}\0${id}`);
 
+  const dad = await phone('dad', { syncCode: code });
+  const mum = await phone('mum');
+
+  await mum.p.click('[data-log="milestone"]').catch(async () => { await tab(mum.p, 'growing'); await mum.p.click('[data-log="milestone"]'); });
+  ok('unpaired: sharing switch off and explains why',
+    await shareSwitch(mum.p).isDisabled() &&
+    (await mum.p.locator('.toggle-field').textContent()).includes('Pair a phone first'));
+  await mum.p.click('#sheetClose');
+
+  await tab(dad.p, 'growing');
+  await dad.p.click('[data-log="milestone"]');
+  ok('paired before this update: one-time rescan explained',
+    await shareSwitch(dad.p).isDisabled() &&
+    (await dad.p.locator('.toggle-field').textContent()).includes('One-time step'));
+  await dad.p.click('#sheetClose');
+
+  // Showing the pairing code makes the photo key; scanning it hands it over.
+  await tab(dad.p, 'settings');
+  await dad.p.click('#pairBtn');
+  const key = await dad.p.evaluate(() => Store.settings().photoKey);
+  const link = await dad.p.evaluate(() => Pair.link(Store.settings().syncCode));
+  ok('showing the code creates a photo key', /^[A-Za-z0-9_-]{43}$/.test(key));
+  ok('key rides in the link fragment', link.includes(`#pair=${code}&k=${key}`));
+  await dad.p.click('#pairClose');
+  await mum.p.goto(link);
+  await mum.p.waitForTimeout(600);
+  ok('scanning adopts code and key',
+    await mum.p.evaluate(k => Store.settings().photoKey === k && Store.settings().syncCode.length === 32, key));
+  ok('key stripped from the address bar', !(await mum.p.evaluate(() => location.hash)));
+  ok('backups never carry the key',
+    await dad.p.evaluate(() => !JSON.stringify(Store.exportData()).includes(Store.settings().photoKey)));
+
+  // A photo, not shared: stays on dad's phone.
   await tab(dad.p, 'growing');
   await dad.p.click('[data-log="milestone"]');
   await dad.p.click('.tag[data-fill="title"] >> text=First laugh');
   ok('suggestion fills the title', (await dad.p.inputValue('input[name="title"]')) === 'First laugh');
   await dad.p.setInputFiles('[data-photo-input]', { name: 'laugh.png', mimeType: 'image/png', buffer: await pngBuffer(dad.p, '#e07a5f') });
   await dad.p.waitForSelector('.photo-preview:not([hidden])');
+  ok('sharing is off by default', !(await shareSwitch(dad.p).isChecked()) && !(await shareSwitch(dad.p).isDisabled()));
   await dad.p.click('.sheet-actions button[type="submit"]');
-  await dad.p.waitForTimeout(300);
+  await settle(dad.p);
 
   const m = await dad.p.evaluate(() => Store.byType('milestone')[0]);
-  ok('milestone saved with a photo id, not the image', /^p[0-9a-f]{16}$/.test(m.data.photo) &&
-    JSON.stringify(m).length < 500);
+  ok('milestone holds a photo id, not the image', /^p[0-9a-f]{16}$/.test(m.data.photo) && JSON.stringify(m).length < 500);
   ok('photo shrunk to a JPEG', await dad.p.evaluate(id => Photos.get(id).then(u => u.startsWith('data:image/jpeg')), m.data.photo));
-  ok('first-laugh suggestion gone once logged',
-    await dad.p.evaluate(() => !Features.get('milestone').fields[0].suggest().includes('First laugh')));
+  ok('unshared photo never reaches the server', !onServer(m.data.photo));
 
-  await dad.p.evaluate(() => Sync.run());
-  await dad.p.waitForTimeout(500);
-  ok('photo uploaded to the server', photos.has(`${code}\0${m.data.photo}`));
-
-  await mum.p.evaluate(() => Sync.run());
+  await settle(mum.p);
   await tab(mum.p, 'growing');
+  await mum.p.waitForTimeout(300);
+  ok('other phone says the photo is on the other phone',
+    await mum.p.locator('.m-photo.is-missing .m-elsewhere').isVisible());
+
+  // Share it.
+  await dad.p.click('.m-card');
+  await shareSwitch(dad.p).check();
+  await dad.p.click('.sheet-actions button[type="submit"]');
+  await settle(dad.p);
+  const payload = onServer(m.data.photo) || '';
+  ok('shared photo uploaded encrypted', payload.startsWith('enc1:'));
+  ok('server copy holds no image data', !payload.includes('data:image') && !payload.includes('/9j/'));
+
+  await settle(mum.p);
+  await tab(mum.p, 'now'); await tab(mum.p, 'growing');
   await mum.p.waitForSelector('.m-photo img:not([hidden])', { timeout: 3000 }).catch(() => {});
-  ok("the other phone shows dad's photo",
+  ok('other phone decrypts and shows it',
     await mum.p.locator('.m-photo img').evaluate(img => img.src.startsWith('data:image/jpeg') && img.naturalWidth > 0));
 
-  // A new pairing code moves the log to a new household — photos included.
+  // A phone with the code but the wrong key sees nothing — and doesn't crash.
+  const nanny = await phone('nanny', { syncCode: code, photoKey: 'A'.repeat(43) });
+  await settle(nanny.p);
+  await tab(nanny.p, 'growing');
+  await nanny.p.waitForTimeout(600);
+  ok('wrong key cannot open the photo', await nanny.p.locator('.m-photo.is-missing').isVisible());
+  await nanny.ctx.close();
+
+  // Unshare: off the server, and gone from mum's phone.
+  await dad.p.click('.m-card');
+  await shareSwitch(dad.p).uncheck();
+  await dad.p.click('.sheet-actions button[type="submit"]');
+  await settle(dad.p);
+  ok('unsharing takes it off the server', !onServer(m.data.photo));
+  await settle(mum.p);
+  await tab(mum.p, 'now'); await tab(mum.p, 'growing');
+  await mum.p.waitForTimeout(300);
+  ok("unsharing removes mum's copy",
+    await mum.p.locator('.m-photo.is-missing').isVisible() &&
+    await mum.p.evaluate(id => Photos.get(id, false).then(u => u === null), m.data.photo));
+  ok('dad still has his photo', await dad.p.locator('.m-photo img').evaluate(img => img.naturalWidth > 0));
+
+  // Share again, then a new pairing code: the photo moves with the log.
+  await dad.p.click('.m-card');
+  await shareSwitch(dad.p).check();
+  await dad.p.click('.sheet-actions button[type="submit"]');
+  await settle(dad.p);
   const newCode = 'e'.repeat(32);
   await dad.p.evaluate(c => Store.saveSettings({ syncCode: c }), newCode);
-  await dad.p.evaluate(() => Sync.run());
-  await dad.p.waitForTimeout(500);
-  ok('photo follows the log to a new pairing code', photos.has(`${newCode}\0${m.data.photo}`));
+  await settle(dad.p);
+  ok('photo follows the log to a new pairing code',
+    (photos.get(`${newCode}\0${m.data.photo}`) || '').startsWith('enc1:') && !onServer(m.data.photo));
   await dad.p.evaluate(c => Store.saveSettings({ syncCode: c }), code);
-  await dad.p.evaluate(() => Sync.run());
-  await dad.p.waitForTimeout(300);
+  await settle(dad.p);
 
-  // Deleting the milestone takes the photo off the server too.
+  // Deleting the milestone takes the photo with it.
   await dad.p.click('.m-card');
   dad.p.once('dialog', d => d.accept());
   await dad.p.click('#deleteEntry');
-  await dad.p.waitForTimeout(500);
-  ok('deleting the milestone deletes its photo on the server', !photos.has(`${code}\0${m.data.photo}`));
+  await settle(dad.p);
+  ok('deleting the milestone deletes its photo on the server', !onServer(m.data.photo));
+
+  // And "Delete all" clears shared photos off the server too.
+  await dad.p.click('[data-log="milestone"]');
+  await dad.p.fill('input[name="title"]', 'Sat up');
+  await dad.p.setInputFiles('[data-photo-input]', { name: 'sit.png', mimeType: 'image/png', buffer: await pngBuffer(dad.p, '#3d405b') });
+  await dad.p.waitForSelector('.photo-preview:not([hidden])');
+  await shareSwitch(dad.p).check();
+  await dad.p.click('.sheet-actions button[type="submit"]');
+  await settle(dad.p);
+  const second = await dad.p.evaluate(() => Store.byType('milestone')[0].data.photo);
+  ok('second shared photo is up', Boolean(onServer(second)));
+  await tab(dad.p, 'settings');
+  dad.p.once('dialog', d => d.accept());
+  await dad.p.click('#clearBtn');
+  await settle(dad.p);
+  ok('"Delete all" removes shared photos from the server', !onServer(second));
   await dad.ctx.close(); await mum.ctx.close();
 }
 
@@ -322,14 +416,15 @@ async function pngBuffer(p, color) {
 {
   photoFunctions = false;
   const code = 'd'.repeat(32);
-  const solo = await phone('no-migration', { syncCode: code });
+  const solo = await phone('no-migration', { syncCode: code, photoKey: 'B'.repeat(43) });
   await tab(solo.p, 'growing');
   await solo.p.click('[data-log="milestone"]');
   await solo.p.fill('input[name="title"]', 'Sat up');
   await solo.p.setInputFiles('[data-photo-input]', { name: 'sit.png', mimeType: 'image/png', buffer: await pngBuffer(solo.p, '#81b29a') });
   await solo.p.waitForSelector('.photo-preview:not([hidden])');
+  await solo.p.locator('input[name="sharePhoto"]').check();
   await solo.p.click('.sheet-actions button[type="submit"]');
-  await solo.p.evaluate(() => Sync.run());
+  await solo.p.evaluate(async () => { await Sync.run(); await Photos.sync(); });
   await solo.p.waitForTimeout(500);
   ok('milestone still syncs', [...rows.values()].some(r => r.household === code && r.type === 'milestone'));
   ok('photo kept on the phone', await solo.p.locator('.m-photo img').evaluate(img => img.naturalWidth > 0));
