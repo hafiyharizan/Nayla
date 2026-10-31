@@ -1,5 +1,5 @@
 /* The Home screen: where the app opens, its header photo, its alerts, and
- * the last-24-hours summary.
+ * today's numbers against a usual day, and the 7-day charts.
  *
  * Runs against a static server with a stub backend that records every call,
  * so the test can prove the Home photo never leaves the phone.
@@ -51,9 +51,10 @@ const H = 3600000, D = 24 * H;
 const iso = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 /** A phone with settings and records already in place, opened fresh. */
-async function phone(label, { settings = {}, records = [] } = {}) {
+async function phone(label, { settings = {}, records = [], time = null } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const p = await ctx.newPage();
+  if (time) await p.clock.install({ time });     // a fixed "now" that still ticks
   p.on('pageerror', e => errs.push(`${label}: ${e.message}`));
   p.on('console', m => { if (m.type() === 'error') errs.push(`${label}: ${m.text()}`); });
   await p.goto(`http://localhost:${PORT}/index.html`);
@@ -173,19 +174,59 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   await ctx.close();
 }
 
-/* ── 3. the last 24 hours ──────────────────────────────────── */
+/* ── 3. today, against a usual day ────────────────────────── */
 {
-  const now = Date.now();
+  // 3pm, so "by now" and "a whole day" differ.
+  const now = new Date(2026, 9, 31, 15, 0).getTime();
+  const mid = k => { const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - k); return d.getTime(); };
   const recs = [];
-  // 6 feeds a day for the past week, 9 in the last 24 hours.
-  for (let k = 1; k <= 7; k++) for (let i = 0; i < 6; i++) recs.push({ type: 'feed', at: now - k * D - i * 3 * H - H, data: { method: 'bottle' } });
-  for (let i = 0; i < 9; i++) recs.push({ type: 'feed', at: now - i * 2 * H - 30 * 60000, data: { method: 'bottle' } });
-  const { ctx, p } = await phone('summary', { records: recs });
-  const feeds = await p.textContent('.sum-feed');
-  ok('feeds in the last 24 hours', /Feeds\s*9/.test(feeds), feeds.replace(/\s+/g, ' '));
-  ok('against her 7-day average', feeds.includes('7-day avg 6'));
-  ok('marked as more than usual', (await p.locator('.sum-feed .sum-trend').textContent()) === '↑');
+  for (let k = 1; k <= 7; k++) {
+    // 6 feeds a day, 4 of them before 3pm; 6 diapers, 4 before 3pm.
+    for (const h of [1, 5, 9, 13, 17, 21]) recs.push({ type: 'feed', at: mid(k) + h * H, data: { method: 'bottle' } });
+    for (const h of [2, 6, 10, 14, 18, 22]) recs.push({ type: 'diaper', at: mid(k) + h * H, data: { kind: 'wet' } });
+  }
+  // Nights from 10pm to 6am: 8h a whole day, 6h of it before 3pm.
+  for (let k = 0; k <= 8; k++) recs.push({ type: 'sleep', at: mid(k) - 2 * H, end: mid(k) + 6 * H });
+  // Today: 7 feeds and 4 diapers so far.
+  for (const h of [1, 3, 5, 7, 9, 11, 13]) recs.push({ type: 'feed', at: mid(0) + h * H, data: { method: 'bottle' } });
+  for (const h of [2, 6, 10, 14]) recs.push({ type: 'diaper', at: mid(0) + h * H, data: { kind: 'wet' } });
+
+  const { ctx, p } = await phone('today', { records: recs, time: now });
+  const text = async sel => (await p.textContent(sel)).replace(/\s+/g, ' ').trim();
+  const feeds = await text('.sum-feed');
+  ok('feeds since midnight', /Feeds 7\b/.test(feeds), feeds);
+  ok('against what she usually has by this time', feeds.includes('Usually 4 by now'));
+  ok('…and on a whole day', feeds.includes('Avg 6 a day'));
+  ok('more than usual says how many more', (await text('.sum-feed .sum-chip')) === '↑ 3 more');
+
+  const sleep = await text('.sum-sleep');
+  ok('a night across midnight counts its share of today', /Sleep 6h\b/.test(sleep), sleep);
+  ok('sleep against the same hours on other days', sleep.includes('Usually 6h by now') && sleep.includes('Avg 8h a day'));
+  ok('same as usual is "On track"', (await text('.sum-sleep .sum-chip')) === 'On track');
+  ok('diapers on track too', (await text('.sum-diaper .sum-chip')) === 'On track');
+  ok('a tracker with no history yet says so',
+    (await text('.sum-solids')).includes('Not enough days') && !(await p.isVisible('.sum-solids .sum-chip')));
   ok('a tile per tracker that counts', (await p.locator('.sum-tile').count()) === 4);
+  ok('the meter fills to today against a whole day',
+    parseFloat(await p.$eval('.sum-feed .sum-meter i', i => i.style.width)) === 100);
+
+  // The 7-day charts: one per tracker with something logged.
+  ok('a chart each for sleep, feeds and diapers',
+    (await p.$$eval('#statsBody .stat-block h3', hs => hs.map(h => h.textContent).join())) === 'Sleep per day,Feeds per day,Diapers per day');
+  const feedChart = p.locator('#statsBody .stat-block', { hasText: 'Feeds per day' });
+  ok('the chart reads out her usual day', (await feedChart.locator('.chart-readout').textContent()) === 'Usually 6 a day');
+  ok("today's column carries its value", (await feedChart.locator('.c-cap').textContent()) === '7');
+  ok('seven columns, today last', (await feedChart.locator('.c-day').allTextContents()).at(-1) === 'Today'
+    && (await feedChart.locator('.col').count()) === 7);
+  await feedChart.locator('[data-col="0"]').click();
+  const sevenAgo = new Date(mid(6)).toLocaleDateString([], { weekday: 'long' });
+  ok('tapping a day reads it out', (await feedChart.locator('.chart-readout').textContent()) === `${sevenAgo} · 6`,
+    await feedChart.locator('.chart-readout').textContent());
+  await feedChart.locator('[data-col="0"]').click();
+  ok('tapping it again goes back', (await feedChart.locator('.chart-readout').textContent()) === 'Usually 6 a day');
+
+  ok('the greeting knows the night shift', await p.evaluate(() =>
+    Home.greeting(3).text === 'Night shift' && Home.greeting(9).text === 'Good morning' && Home.greeting(15).text === 'Good afternoon'));
   await ctx.close();
 }
 

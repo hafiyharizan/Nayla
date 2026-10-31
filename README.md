@@ -42,9 +42,16 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
   allergens not tried yet, measurements due). Each can be dismissed — for the day,
   or a week for suggestions — and only trackers that are on produce alerts. With
   nothing to say it says **All calm**.
-- **Last 24 hours** — feeds, sleep, diapers and solid meals over the past 24 hours,
-  against her own 7-day average, with ↑ or ↓ when it's clearly more or less.
-- **Last 7 days** — the per-day charts that used to be the Stats tab.
+- **Today** — feeds, sleep, diapers and solid meals since midnight, each against
+  what she usually has *by this time of day* over the last 7 days (so 9am isn't
+  compared with a whole day), with a badge — **↑ 3 more**, **↓ 1h less** or
+  **On track** — and a bar filling toward her average whole day. A night that
+  crosses midnight counts its share of each day.
+- **Last 7 days** — a column per day for each tracker, today on the right with its
+  value, and a line at her average. Tap a day to read it out; tap again to go back.
+
+The top of Home says hello by the hour (with a **Night shift** for the 3am feed) and
+counts her age in days. Cards rise in when you open the tab.
 
 The app always opens on Home; a reload (such as the one after an update) keeps you on
 the tab you were using.

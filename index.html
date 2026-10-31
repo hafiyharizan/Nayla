@@ -29,11 +29,12 @@
     <div class="hero" id="hero">
       <img class="hero-img" alt="" hidden>
       <div class="hero-shade"></div>
+      <p class="hero-hi"></p>
       <div class="hero-text">
         <h1 class="hero-name">Nayla</h1>
         <p class="hero-age"></p>
+        <p class="hero-add">Tap the camera to add a photo. It stays on this phone.</p>
       </div>
-      <p class="hero-add">Tap 📷 to add a photo — it stays on this phone</p>
       <label class="hero-cam" aria-label="Choose the home photo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -46,10 +47,16 @@
     <h2 class="section-title">Right now</h2>
     <ul class="alerts" id="homeAlerts"></ul>
 
-    <h2 class="section-title" id="summaryTitle">Last 24 hours</h2>
+    <div class="section-head" id="summaryHead">
+      <h2 class="section-title">Today</h2>
+      <span class="section-meta">so far, vs a usual day</span>
+    </div>
     <div class="sum-grid" id="homeSummary"></div>
 
-    <h2 class="section-title">Last 7 days</h2>
+    <div class="section-head" id="weekHead">
+      <h2 class="section-title">Last 7 days</h2>
+      <span class="section-meta">tap a day</span>
+    </div>
     <div id="statsBody"></div>
   </section>
 

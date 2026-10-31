@@ -29,6 +29,19 @@
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-on', t.dataset.tab === name));
     window.scrollTo(0, 0);
     render();
+    enter();
+  }
+
+  /* Cards rise in for a moment when a tab opens. Only then: the 30-second
+   * refresh redraws the same cards and must not replay it. */
+  let enterTimer;
+  function enter() {
+    const view = document.querySelector(`.view[data-view="${currentView}"]`);
+    document.querySelectorAll('.view.is-entering').forEach(v => v.classList.remove('is-entering'));
+    void view.offsetWidth;                       // restart, if it was mid-way
+    view.classList.add('is-entering');
+    clearTimeout(enterTimer);
+    enterTimer = setTimeout(() => view.classList.remove('is-entering'), 1100);
   }
 
   document.querySelector('.tabbar').addEventListener('click', e => {
@@ -244,56 +257,6 @@
     [...groups.entries()].forEach(([key, group]) => {
       renderList(target.querySelector(`[data-day="${key}"]`), group, settings);
     });
-  }
-
-  /* ── STATS view ──────────────────────────────────────────── */
-  function renderStats() {
-    const settings = Store.settings();
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      days.push({ date: d, ...dayTotals(d) });
-    }
-
-    const on = type => Store.trackerOn(type);
-    if (!days.some(d => (on('feed') && d.feeds) || (on('diaper') && d.diapers) ||
-                        (on('sleep') && d.sleepMs) || (on('solids') && d.meals))) {
-      $('#statsBody').innerHTML = `<p class="empty">Log a few days and trends will show up here.</p>`;
-      return;
-    }
-
-    $('#statsBody').innerHTML = [
-      on('sleep') && block('Sleep per day', days, 'sleep', d => d.sleepMs || 0, ms => Fmt.duration(ms)),
-      on('feed') && block('Feeds per day', days, 'feed', d => d.feeds || 0, n => `${n}`),
-      on('feed') && days.some(d => d.feedMl) &&
-        block('Bottle volume per day', days, 'feed', d => d.feedMl || 0,
-              ml => Fmt.amount(ml, settings.units)),
-      on('diaper') && block('Diapers per day', days, 'diaper', d => d.diapers || 0, n => `${n}`),
-      on('solids') && days.some(d => d.meals) &&
-        block('Solid meals per day', days, 'solids', d => d.meals || 0, n => `${n}`),
-    ].filter(Boolean).join('');
-  }
-
-  function block(heading, days, kind, pick, label) {
-    const values = days.map(pick);
-    const max = Math.max(...values, 1);
-    const rows = days.map((d, i) => `
-      <div class="bar-row">
-        <span class="bar-day">${shortDay(d.date)}</span>
-        <div class="bar-track"><div class="bar-fill ${kind} ${values[i] ? '' : 'is-zero'}" style="width:${(values[i] / max) * 100}%"></div></div>
-        <span class="bar-val">${values[i] ? label(values[i]) : '—'}</span>
-      </div>`).join('');
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    return `<div class="stat-block"><h3>${heading}</h3><div class="bars">${rows}</div>
-      <p class="avg">7-day average: ${label(Math.round(avg))}</p></div>`;
-  }
-
-  function shortDay(date) {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const d = new Date(date); d.setHours(0, 0, 0, 0);
-    if (d.getTime() === today.getTime()) return 'Today';
-    return d.toLocaleDateString([], { weekday: 'short' });
   }
 
   /* ── logging actions ─────────────────────────────────────── */
@@ -652,7 +615,7 @@
     $('#babyAge').textContent = Fmt.age(s.dob);
 
     buildChrome();
-    if (currentView === 'home') { Home.render(); renderStats(); }
+    if (currentView === 'home') Home.render();
     else if (currentView === 'now') renderNow();
     else if (currentView === 'growing') Growing.render($('#growingBody'), { renderList });
     else if (currentView === 'history') renderHistory();
@@ -692,6 +655,7 @@
 
   Store.onChange(render);
   render();
+  enter();
   Sync.start();
   Photos.start();
   Install.start();
