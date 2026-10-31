@@ -1,14 +1,13 @@
 /* Home: the screen the app opens on.
  *
- * Three things, top to bottom:
- *   a header photo     picked on this phone and kept on this phone; until one
- *                      is picked, the newest milestone photo this phone has
- *   alerts             what needs attention now, and a few gentle suggestions,
- *                      worked out from the log — never more than five
- *   the last 24 hours  each tracker's total against her own 7-day average
- *
- * The 7-day charts (what used to be the Stats tab) sit underneath; app.js
- * renders those.
+ * Four things, top to bottom:
+ *   a header photo   picked on this phone and kept on this phone; until one
+ *                    is picked, the newest milestone photo this phone has
+ *   alerts           what needs attention now, and a few gentle suggestions,
+ *                    worked out from the log — never more than five
+ *   today            each tracker's total since midnight, against what she
+ *                    usually has by this time of day, and on a whole day
+ *   the last 7 days  a column per day (what used to be the Stats tab)
  *
  * Alert buttons use data-act rather than the data-log / data-entry buttons
  * used everywhere else, so a hidden Home never shadows the real ones.
@@ -60,34 +59,94 @@ const Home = (() => {
     return totals;
   }
 
-  /* The one number each tracker is judged by, and how to show it. */
+  /* Local midnight k days ago, and this same clock time k days ago. Built
+   * from calendar dates rather than by subtracting 24-hour blocks, so the
+   * day a clock changes still lines up. */
+  function dayStart(k) {
+    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - k);
+    return d.getTime();
+  }
+  function sameTime(k) {
+    const d = new Date(); d.setDate(d.getDate() - k);
+    return d.getTime();
+  }
+
+  /** Today so far (index 0) and the seven whole days before it, each with
+   *  its totals up to this time of day as well. Worked out once per render
+   *  and shared by the Today tiles and the 7-day charts. */
+  function days() {
+    const now = Date.now();
+    const out = [{ start: dayStart(0), totals: totalsBetween(dayStart(0), now) }];
+    for (let k = 1; k <= 7; k++) {
+      out.push({
+        start: dayStart(k),
+        totals: totalsBetween(dayStart(k), dayStart(k - 1)),
+        soFar: totalsBetween(dayStart(k), sameTime(k)),
+      });
+    }
+    return out;
+  }
+
+  const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
+  const count = n => `${Math.round(n)}`;
+
+  /* The one number each tracker is judged by, how to show it, and the
+   * smallest difference worth calling more or less than usual. */
   const METRIC = {
-    feed:   { get: t => t.feeds || 0,   show: n => `${Math.round(n)}`, label: 'Feeds' },
-    sleep:  { get: t => t.sleepMs || 0, show: n => Fmt.duration(n),    label: 'Sleep' },
-    diaper: { get: t => t.diapers || 0, show: n => `${Math.round(n)}`, label: 'Diapers' },
-    solids: { get: t => t.meals || 0,   show: n => `${Math.round(n)}`, label: 'Solids' },
+    feed:   { get: t => t.feeds || 0,   show: count,        label: 'Feeds',   step: 1,        more: 'more', less: 'fewer' },
+    sleep:  { get: t => t.sleepMs || 0, show: Fmt.duration, label: 'Sleep',   step: 30 * MIN, more: 'more', less: 'less',
+              // Short enough for the badge: 40m, then to the half hour — 1.5h, 6h.
+              delta: ms => ms < 55 * MIN ? `${Math.round(ms / MIN)}m` : `${Math.round(ms / (30 * MIN)) / 2}h` },
+    diaper: { get: t => t.diapers || 0, show: count,        label: 'Diapers', step: 1,        more: 'more', less: 'fewer' },
+    solids: { get: t => t.meals || 0,   show: count,        label: 'Solids',  step: 1,        more: 'more', less: 'fewer' },
   };
 
-  /** Last 24 hours per tracker, against the average of the seven 24-hour
-   *  stretches before it — counting only stretches where that tracker was
-   *  actually logged, so a new user's empty week doesn't drag it to zero. */
-  function summary() {
-    const now = Date.now();
-    const current = totalsBetween(now - DAY, now);
-    const past = [];
-    for (let k = 1; k <= 7; k++) past.push(totalsBetween(now - (k + 1) * DAY, now - k * DAY));
+  /** Her usual whole day for one measure: the average over the last seven
+   *  days, counting only days it was logged at all — so a new user's empty
+   *  week doesn't drag it to zero. Null until there are two such days. */
+  function usualDay(week, get) {
+    const logged = week.slice(1).filter(d => get(d.totals) > 0);
+    return logged.length >= 2 ? { perDay: mean(logged.map(d => get(d.totals))), logged } : null;
+  }
 
+  /** Each tracker since midnight, against what she usually has by this time
+   *  of day — a fair comparison at 9am as well as at 9pm — and against her
+   *  usual whole day. */
+  function today(week = days()) {
     return Object.entries(METRIC).filter(([type]) => on(type)).map(([type, m]) => {
-      const logged = past.map(m.get).filter(v => v > 0);
-      const avg = logged.length >= 2 ? logged.reduce((a, b) => a + b, 0) / logged.length : null;
-      const value = m.get(current);
-      let trend = '';
-      if (avg != null && value > 0) {
-        const diff = (value - avg) / avg;
-        trend = diff > 0.15 ? 'up' : diff < -0.15 ? 'down' : '';
+      const value = m.get(week[0].totals);
+      const usual = usualDay(week, m.get);
+      const tile = { type, label: m.label, icon: Features.get(type).icon,
+        value, shown: m.show(value), byNow: null, perDay: null, trend: null, delta: '' };
+      if (!usual) return tile;
+
+      const byNow = mean(usual.logged.map(d => m.get(d.soFar)));
+      const diff = value - byNow;
+      tile.byNow = m.show(byNow);
+      tile.perDay = m.show(usual.perDay);
+      tile.fill = Math.min(1, value / usual.perDay);
+      tile.mark = Math.min(1, byNow / usual.perDay);
+      if (Math.abs(diff) >= m.step && (byNow === 0 || Math.abs(diff) / byNow > 0.15)) {
+        tile.trend = diff > 0 ? 'up' : 'down';
+        tile.delta = `${(m.delta || m.show)(Math.abs(diff))} ${diff > 0 ? m.more : m.less}`;
+      } else {
+        tile.trend = 'same';
       }
-      return { type, label: m.label, value: m.show(value), avg: avg == null ? null : m.show(avg), trend };
+      return tile;
     });
+  }
+
+  /* The 7-day charts. Bottle volume and solids only appear once there is
+   * something to show. */
+  function weekCharts(units) {
+    return [
+      { key: 'sleep',  type: 'sleep',  title: 'Sleep per day',   get: METRIC.sleep.get,  show: METRIC.sleep.show },
+      { key: 'feed',   type: 'feed',   title: 'Feeds per day',   get: METRIC.feed.get,   show: count },
+      { key: 'feedMl', type: 'feed',   title: 'Bottle volume per day', get: t => t.feedMl || 0,
+        show: ml => Fmt.amount(ml, units), optional: true },
+      { key: 'diaper', type: 'diaper', title: 'Diapers per day', get: METRIC.diaper.get, show: count },
+      { key: 'solids', type: 'solids', title: 'Solid meals per day', get: METRIC.solids.get, show: count, optional: true },
+    ].filter(c => on(c.type));
   }
 
   /* ── alerts ──────────────────────────────────────────────── */
@@ -288,11 +347,24 @@ const Home = (() => {
     return null;
   }
 
+  /** A hello that knows the hour — including the 3am feed. */
+  function greeting(hour = new Date().getHours()) {
+    if (hour >= 5 && hour < 12) return { icon: '☀️', text: 'Good morning' };
+    if (hour >= 12 && hour < 17) return { icon: '🌤️', text: 'Good afternoon' };
+    if (hour >= 17 && hour < 21) return { icon: '🌇', text: 'Good evening' };
+    return { icon: '🌙', text: 'Night shift' };
+  }
+
   async function renderHero() {
     const hero = document.getElementById('hero');
     const s = Store.settings();
+    const hi = greeting();
+    hero.querySelector('.hero-hi').textContent = `${hi.icon} ${hi.text}`;
     hero.querySelector('.hero-name').textContent = s.name || 'Baby';
-    hero.querySelector('.hero-age').textContent = Fmt.age(s.dob);
+    // Day 1 is the day she was born.
+    const day = Fmt.ageDays(s.dob);
+    hero.querySelector('.hero-age').textContent =
+      [Fmt.age(s.dob), day != null && day >= 0 ? `day ${day + 1}` : ''].filter(Boolean).join(' · ');
     const found = await heroUrl().catch(() => null);
     const img = hero.querySelector('.hero-img');
     hero.classList.toggle('has-photo', Boolean(found));
@@ -319,17 +391,22 @@ const Home = (() => {
   }
 
   /* ── rendering ───────────────────────────────────────────── */
-  const TREND = { up: '↑', down: '↓' };
-  const TREND_WORD = { up: 'more than usual', down: 'less than usual' };
+  /* Which tracker an alert is about, by the start of its id, so its icon
+   * sits in that tracker's colour. */
+  const TONE = {
+    forgotten: 'sleep', over: 'sleep', due: 'sleep',
+    feedgap: 'feed', wet: 'diaper',
+    allergen: 'solids', signs: 'solids', 'solids-ready': 'solids', allergens: 'solids',
+    'growth-first': 'growth', 'growth-due': 'growth',
+    month: 'milestone',
+  };
 
-  function render() {
-    renderHero();
-
+  function renderAlerts() {
     const list = alerts();
     document.getElementById('homeAlerts').innerHTML = list.length
-      ? list.map(a => `
-        <li class="alert alert-${a.level}" data-alert="${escapeHtml(a.id)}">
-          <span class="alert-icon" aria-hidden="true">${a.icon}</span>
+      ? list.map((a, i) => `
+        <li class="alert alert-${a.level}" data-alert="${escapeHtml(a.id)}" style="--i:${i}">
+          <span class="alert-icon tone-${TONE[a.id.split(':')[0]] || 'none'}" aria-hidden="true">${a.icon}</span>
           <span class="alert-text">
             <b>${escapeHtml(a.title)}</b>
             <span>${escapeHtml(a.body)}</span>
@@ -338,21 +415,135 @@ const Home = (() => {
           <button class="alert-x" data-dismiss="${escapeHtml(a.id)}" data-days="${a.dismissDays || 0}"
                   aria-label="Dismiss">✕</button>
         </li>`).join('')
-      : `<li class="alert alert-calm"><span class="alert-icon" aria-hidden="true">🌿</span>
+      : `<li class="alert alert-calm"><span class="alert-icon tone-growth" aria-hidden="true">🌿</span>
            <span class="alert-text"><b>All calm</b><span>Nothing needs you right now.</span></span></li>`;
+  }
 
-    const tiles = summary();
+  const CHIP = { up: '↑', down: '↓' };
+
+  function renderToday(week) {
+    const tiles = today(week);
     const box = document.getElementById('homeSummary');
     box.hidden = !tiles.length;
-    document.getElementById('summaryTitle').hidden = !tiles.length;
-    box.style.setProperty('--cols', tiles.length === 3 ? 3 : 2);
-    box.innerHTML = tiles.map(t => `
-      <div class="sum-tile sum-${t.type}">
+    document.getElementById('summaryHead').hidden = !tiles.length;
+    box.innerHTML = tiles.map((t, i) => {
+      const chip = t.trend === 'same'
+        ? `<span class="sum-chip is-same">On track</span>`
+        : t.trend ? `<span class="sum-chip is-${t.trend}">${CHIP[t.trend]} ${escapeHtml(t.delta)}</span>` : '';
+      const meter = t.perDay == null ? '' : `
+        <span class="sum-meter" role="img"
+              aria-label="${escapeHtml(`${t.shown} so far; usually ${t.byNow} by now, ${t.perDay} in a whole day`)}">
+          <i style="width:${(t.fill * 100).toFixed(1)}%"></i><s style="left:${(t.mark * 100).toFixed(1)}%"></s>
+        </span>`;
+      const notes = t.perDay == null
+        ? `<em class="sum-note">Not enough days to compare yet</em>`
+        : `<em class="sum-note">Usually ${escapeHtml(t.byNow)} by now</em>
+           <em class="sum-note">Avg ${escapeHtml(t.perDay)} a day</em>`;
+      return `
+      <div class="sum-tile sum-${t.type}" style="--i:${i}">
+        <span class="sum-top"><span class="sum-icon" aria-hidden="true">${t.icon}</span>${chip}</span>
         <span class="sum-label">${t.label}</span>
-        <b class="sum-value">${escapeHtml(t.value)}${t.trend
-          ? ` <span class="sum-trend" title="${TREND_WORD[t.trend]}" aria-label="${TREND_WORD[t.trend]}">${TREND[t.trend]}</span>` : ''}</b>
-        <em class="sum-note">${t.avg != null ? `7-day avg ${escapeHtml(t.avg)}` : 'not enough days yet'}</em>
-      </div>`).join('');
+        <b class="sum-value">${escapeHtml(t.shown)}</b>
+        ${meter}${notes}
+      </div>`;
+    }).join('');
+  }
+
+  /* ── the 7-day charts ────────────────────────────────────── */
+  /* One column per day, oldest on the left, today on the right with its
+   * value on the cap. Tapping a column reads it out above the chart;
+   * tapping it again goes back to her usual day. */
+  const picked = {};                         // chart key → column picked
+  const W = 320, H = 132, TOP = 18, BASE = 104, LEFT = 4, RIGHT = 28;
+
+  function weekday(start, i) {
+    return i === 6 ? 'Today' : new Date(start).toLocaleDateString([], { weekday: 'short' });
+  }
+
+  function chartSvg(c, cols, perDay) {
+    const max = Math.max(...cols.map(d => d.value), perDay || 0) || 1;
+    const slot = (W - LEFT - RIGHT) / 7;
+    const bar = Math.min(22, slot * 0.56);
+    const y = v => BASE - (v / max) * (BASE - TOP);
+    const pick = picked[c.key];
+
+    const columns = cols.map((d, i) => {
+      const x = LEFT + slot * i + (slot - bar) / 2;
+      const top = y(d.value), h = BASE - top;
+      const r = Math.min(4, h);
+      const shape = d.value > 0
+        ? `<path class="col-bar ${c.type}" style="--i:${i}" d="M${x} ${BASE}V${top + r}Q${x} ${top} ${x + r} ${top}H${x + bar - r}Q${x + bar} ${top} ${x + bar} ${top + r}V${BASE}Z"/>`
+        : '';
+      const cap = (i === 6 || i === pick) && d.value > 0
+        ? `<text class="c-cap" x="${x + bar / 2}" y="${top - 6}">${escapeHtml(c.show(d.value))}</text>` : '';
+      const name = `${d.long}: ${d.value > 0 ? c.show(d.value) : 'nothing logged'}`;
+      return `<g class="col ${i === pick ? 'is-picked' : ''}" data-chart="${c.key}" data-col="${i}"
+                 tabindex="0" role="button" aria-label="${escapeHtml(name)}">
+          <title>${escapeHtml(name)}</title>
+          <rect class="col-hit" x="${LEFT + slot * i}" y="0" width="${slot}" height="${H}" rx="8"/>
+          ${shape}${cap}
+          <text class="c-day ${i === 6 ? 'is-today' : ''}" x="${x + bar / 2}" y="${H - 8}">${d.short}</text>
+        </g>`;
+    }).join('');
+
+    const avg = perDay == null ? '' : `
+      <line class="c-avg" x1="${LEFT}" x2="${W - RIGHT + 4}" y1="${y(perDay)}" y2="${y(perDay)}"/>
+      <text class="c-avg-label" x="${W - RIGHT + 8}" y="${y(perDay) + 3.5}">avg</text>`;
+
+    return `<svg class="wk-chart ${pick != null ? 'has-pick' : ''}" viewBox="0 0 ${W} ${H}" role="group"
+                 aria-label="${escapeHtml(c.title)}, last 7 days">
+        <line class="c-base" x1="${LEFT}" x2="${W - RIGHT + 4}" y1="${BASE}" y2="${BASE}"/>
+        ${avg}${columns}
+      </svg>`;
+  }
+
+  function renderWeek(week = days()) {
+    const box = document.getElementById('statsBody');
+    const units = Store.settings().units;
+    // Oldest first: six whole days, then today so far.
+    const order = [...week.slice(1, 7)].reverse().concat(week[0]);
+    const charts = weekCharts(units)
+      .map(c => ({ c, cols: order.map((d, i) => ({ value: c.get(d.totals), start: d.start,
+        short: weekday(d.start, i),
+        long: i === 6 ? 'Today so far' : new Date(d.start).toLocaleDateString([], { weekday: 'long' }) })) }))
+      .filter(({ c, cols }) => !c.optional || cols.some(d => d.value > 0));
+
+    document.getElementById('weekHead').hidden = !charts.length;
+    if (!charts.some(({ cols }) => cols.some(d => d.value > 0))) {
+      box.innerHTML = charts.length
+        ? `<p class="empty">Log a few days and trends will show up here.</p>` : '';
+      return;
+    }
+
+    box.innerHTML = charts.map(({ c, cols }, n) => {
+      const perDay = usualDay(week, c.get)?.perDay ?? null;
+      const pick = picked[c.key];
+      const readout = pick != null
+        ? `${cols[pick].long} · <b>${cols[pick].value > 0 ? escapeHtml(c.show(cols[pick].value)) : 'nothing logged'}</b>`
+        : perDay != null ? `Usually <b>${escapeHtml(c.show(perDay))}</b> a day`
+        : 'Not enough days for an average yet';
+      return `<div class="stat-block" style="--i:${n}">
+        <h3>${c.title}</h3>
+        <p class="chart-readout">${readout}</p>
+        ${chartSvg(c, cols, perDay)}
+      </div>`;
+    }).join('');
+  }
+
+  function render() {
+    renderHero();
+    renderAlerts();
+    const week = days();
+    renderToday(week);
+    renderWeek(week);
+  }
+
+  function pickColumn(col) {
+    const key = col.dataset.chart, i = Number(col.dataset.col);
+    picked[key] = picked[key] === i ? undefined : i;
+    renderWeek();
+    // Keep keyboard focus on the column that was just read out.
+    document.querySelector(`#statsBody [data-chart="${key}"][data-col="${i}"]`)?.focus({ preventScroll: true });
   }
 
   /* ── wiring ──────────────────────────────────────────────── */
@@ -366,12 +557,21 @@ const Home = (() => {
         rerender();
         return;
       }
+      const col = e.target.closest('[data-col]');
+      if (col) { pickColumn(col); return; }
       const act = e.target.closest('[data-act]');
       if (!act) return;
       const [kind, arg] = act.dataset.act.split(':');
       if (kind === 'log') openSheet(arg);
       else if (kind === 'entry') openEntry(arg);
       else if (kind === 'sleep') toggleSleep();
+    });
+
+    view.addEventListener('keydown', e => {
+      const col = e.target.closest?.('[data-col]');
+      if (!col || (e.key !== 'Enter' && e.key !== ' ')) return;
+      e.preventDefault();
+      pickColumn(col);
     });
 
     view.querySelector('[data-hero-input]').addEventListener('change', async e => {
@@ -383,5 +583,5 @@ const Home = (() => {
     });
   }
 
-  return { render, wire, clearHero, hasPickedHero, alerts, summary, HEADER_ID };
+  return { render, wire, clearHero, hasPickedHero, alerts, today, greeting, HEADER_ID };
 })();
