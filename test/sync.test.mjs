@@ -82,6 +82,7 @@ async function newPhone(label) {
     }
   });
   await page.goto('http://localhost:4173/index.html');
+  await page.click('.tab[data-tab="now"]');   // the app opens on Home
   return { ctx, page };
 }
 
@@ -159,7 +160,7 @@ async function newPhone(label) {
      await page.textContent('#toast'));
   await page.click('#sheetClose');
 
-  for (const tab of ['history', 'stats', 'settings']) {
+  for (const tab of ['home', 'history', 'settings']) {
     await page.click(`[data-tab="${tab}"]`);
     await page.waitForTimeout(200);
   }

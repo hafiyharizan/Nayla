@@ -36,6 +36,7 @@ page.on('pageerror', e => errs.push(e.message));
 const ok = (n,c,x='') => { if(!c) fails.push(n); console.log(`${c?'PASS':'FAIL'} — ${n}${x?` (${x})`:''}`); };
 
 await page.goto('http://localhost:4195/index.html');
+await page.click('.tab[data-tab="now"]');   // the app opens on Home
 
 // Four days ago: a sleep started and never closed. Plus a real completed
 // sleep and a feed just before it, as the real log had.

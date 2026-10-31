@@ -48,6 +48,11 @@ strand the entire history under the old pairing code.
   code, deleting the milestone and "Delete all" each taking it off the server
 - a server without the photo migration: photos stay local, nothing breaks
 
+`home.test.mjs` covers the Home tab: opening on Home and keeping the tab across a
+reload; each kind of alert, its button, and dismissing it for good; the last-24-hours
+totals against the 7-day average; and the header photo, which must never be uploaded
+or swept away by photo sync.
+
 `gap.test.mjs` reproduces the lost-entry race described in `sync.js`.
 
 `qr.test.mjs` round-trips the QR encoder: encode, render to an image, and

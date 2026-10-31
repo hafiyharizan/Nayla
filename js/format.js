@@ -62,6 +62,14 @@ const Fmt = (() => {
     return `${Math.floor(months / 12)} years old`;
   }
 
+  /** Whole days since dob, or null. */
+  function ageDays(dob) {
+    if (!dob) return null;
+    const born = new Date(dob + 'T00:00:00');
+    if (isNaN(born)) return null;
+    return Math.floor((Date.now() - born) / DAY);
+  }
+
   /** Whole months since dob, for wake-window lookup. */
   function ageMonths(dob) {
     if (!dob) return null;
@@ -167,7 +175,7 @@ const Fmt = (() => {
 
   return {
     MIN, HOUR, DAY,
-    duration, ago, clock, dayKey, dayLabel, age, ageMonths,
+    duration, ago, clock, dayKey, dayLabel, age, ageMonths, ageDays,
     amount, toMl, fromMl,
     toKg, toCm, fromKg, fromCm, weight, length, shortDate, ageAt,
   };

@@ -101,6 +101,7 @@ async function phone(label, settings = {}) {
     if (m.type() === 'error' && !/status of 404/.test(m.text())) errs.push(`${label}: ${m.text()}`);
   });
   await p.goto(`http://localhost:${PORT}/index.html`);
+  await p.click('.tab[data-tab="now"]');   // the app opens on Home
   await p.evaluate(s => {
     localStorage.clear();
     localStorage.setItem('nayla.settings.v1', JSON.stringify({ name: 'Nayla', dob: '2026-06-04', ...s }));
