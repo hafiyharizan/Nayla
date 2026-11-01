@@ -42,11 +42,11 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
   allergens not tried yet, measurements due). Each can be dismissed — for the day,
   or a week for suggestions — and only trackers that are on produce alerts. With
   nothing to say it says **All calm**.
-- **Today** — feeds, sleep, diapers and solid meals since midnight, each against
-  what she usually has *by this time of day* over the last 7 days (so 9am isn't
-  compared with a whole day), with a badge — **↑ 3 more**, **↓ 1h less** or
-  **On track** — and a bar filling toward her average whole day. A night that
-  crosses midnight counts its share of each day.
+- **Today** — feeds, sleep, diapers and solid meals since her day began (sunrise —
+  see *Her day* below), each against what she usually has *by this time of day* over
+  the last 7 days (so 9am isn't compared with a whole day), with a badge —
+  **↑ 3 more**, **↓ 1h less** or **On track** — and a bar filling toward her average
+  whole day.
 - **Last 7 days** — a column per day for each tracker, today on the right with its
   value, and a line at her average. Tap a day to read it out; tap again to go back.
 
@@ -79,8 +79,26 @@ the tab you were using.
 type. Tap an entry to edit or delete it.
 
 **Settings** — name, date of birth (which drives the wake-window guidance, the growth
-chart and the age in the header), ml/oz, girl/boy chart, kg+cm or lb+in, which
-trackers to show, sync, and backup/restore.
+chart and the age in the header), ml/oz, girl/boy chart, kg+cm or lb+in, when her
+day starts, which trackers to show, sync, and backup/restore.
+
+### Her day: sunrise to sunrise
+
+Days don't turn over at midnight. Her day runs from sunrise to the next sunrise — the
+way a family reckons it, with the night belonging to the day before it — and **a sleep
+counts in full on the day it started**. So 10pm to 3am is one sleep on one day, not
+two hours today and three tomorrow; a 2am feed is part of last night; and at 3am,
+History and Today still show the day that began yesterday morning. A sleep that
+starts before sunrise (say 4am to 7am) is still the night's.
+
+This applies everywhere a day is added up: Today on Home and on Now, the 7-day charts,
+the day groups in History, and when a dismissed alert comes back.
+
+Sunrise is worked out on the phone (the NOAA formulas, good to about a minute) from a
+location shared once — **Settings → Her day → Use my location**, or the tip on Home.
+It is rounded to about a kilometre, kept on that phone only, and left out of backups.
+Until a phone has it, or if you'd rather, the day starts at a set time instead
+(6:00am unless you change it). Settings are per phone, so do this on each one.
 
 ### Turning trackers on and off
 
@@ -240,6 +258,7 @@ js/format.js          durations, clock times, day labels, ml/oz, kg/lb, cm/in
 js/who.js             WHO growth standards (0–24 months) and percentile maths
 js/features.js        the feature registry — what a feed, a meal or a milestone IS
 js/store.js           records + settings, persisted to localStorage
+js/day.js             her day: sunrise to sunrise, and adding a day up
 js/sync.js            push/pull/merge against the backend
 js/photos.js          milestone photos: kept on the phone; shared ones encrypted
 js/qr.js              a small QR encoder, for the pairing code
@@ -247,7 +266,7 @@ js/pair.js            pairing by scan or link
 js/wake.js            wake-window ranges and current awake/asleep state
 js/sheet.js           the add/edit sheet, rendered from a feature's fields
 js/growing.js         the Growing tab: growth chart, milestones, foods tried
-js/home.js            the Home tab: header photo, alerts, last-24-hours summary
+js/home.js            the Home tab: header photo, alerts, Today, the 7-day charts
 js/app.js             views, live timers, stats, import/export
 sw.js                 offline caching
 supabase/             the sync backend: a records table, a photos table

@@ -51,8 +51,8 @@ const H = 3600000, D = 24 * H;
 const iso = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 /** A phone with settings and records already in place, opened fresh. */
-async function phone(label, { settings = {}, records = [], time = null } = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+async function phone(label, { settings = {}, records = [], time = null, context = {} } = {}) {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, ...context });
   const p = await ctx.newPage();
   if (time) await p.clock.install({ time });     // a fixed "now" that still ticks
   p.on('pageerror', e => errs.push(`${label}: ${e.message}`));
@@ -175,58 +175,124 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
 }
 
 /* ── 3. today, against a usual day ────────────────────────── */
+/* Her day runs from 6am (a set time here; sunrise is tested below) to the
+ * next 6am, and a sleep counts whole on the day it started. */
 {
   // 3pm, so "by now" and "a whole day" differ.
   const now = new Date(2026, 9, 31, 15, 0).getTime();
-  const mid = k => { const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - k); return d.getTime(); };
+  const at = (k, h) => { const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - k); return d.getTime() + h * H; };
   const recs = [];
   for (let k = 1; k <= 7; k++) {
-    // 6 feeds a day, 4 of them before 3pm; 6 diapers, 4 before 3pm.
-    for (const h of [1, 5, 9, 13, 17, 21]) recs.push({ type: 'feed', at: mid(k) + h * H, data: { method: 'bottle' } });
-    for (const h of [2, 6, 10, 14, 18, 22]) recs.push({ type: 'diaper', at: mid(k) + h * H, data: { kind: 'wet' } });
+    // 6 feeds a day, 3 of them by 3pm — and the 2am feed is the night
+    // before's, so it belongs to this day too.
+    for (const h of [7, 10, 13, 17, 21, 26]) recs.push({ type: 'feed', at: at(k, h), data: { method: 'bottle' } });
+    for (const h of [8, 11, 14, 18, 22, 27]) recs.push({ type: 'diaper', at: at(k, h), data: { kind: 'wet' } });
+    // Naps 10–11 and 1–2:30; a night 9pm–3am; and 3:30–6:30am, which starts
+    // before 6am, so it is still that night. 11h 30m a day, 2h 30m by 3pm.
+    recs.push({ type: 'sleep', at: at(k, 10), end: at(k, 11) });
+    recs.push({ type: 'sleep', at: at(k, 13), end: at(k, 14.5) });
+    recs.push({ type: 'sleep', at: at(k, 21), end: at(k, 27) });
+    recs.push({ type: 'sleep', at: at(k, 27.5), end: at(k, 30.5) });
   }
-  // Nights from 10pm to 6am: 8h a whole day, 6h of it before 3pm.
-  for (let k = 0; k <= 8; k++) recs.push({ type: 'sleep', at: mid(k) - 2 * H, end: mid(k) + 6 * H });
-  // Today: 7 feeds and 4 diapers so far.
-  for (const h of [1, 3, 5, 7, 9, 11, 13]) recs.push({ type: 'feed', at: mid(0) + h * H, data: { method: 'bottle' } });
-  for (const h of [2, 6, 10, 14]) recs.push({ type: 'diaper', at: mid(0) + h * H, data: { kind: 'wet' } });
+  // Today: 5 feeds, 3 diapers, and 2h of naps so far.
+  for (const h of [7, 9, 11, 13, 14]) recs.push({ type: 'feed', at: at(0, h), data: { method: 'bottle' } });
+  for (const h of [8, 11, 14]) recs.push({ type: 'diaper', at: at(0, h), data: { kind: 'wet' } });
+  recs.push({ type: 'sleep', at: at(0, 10), end: at(0, 11) });
+  recs.push({ type: 'sleep', at: at(0, 13), end: at(0, 14) });
 
-  const { ctx, p } = await phone('today', { records: recs, time: now });
+  const { ctx, p } = await phone('today', { records: recs, time: now,
+    settings: { dayStart: 'fixed', dayStartTime: '06:00' } });
   const text = async sel => (await p.textContent(sel)).replace(/\s+/g, ' ').trim();
+  ok('Today says when her day began', (await text('#summaryMeta')) === `since ${await p.evaluate(() => Fmt.clock(new Date(2026, 9, 31, 6)))}`,
+    await text('#summaryMeta'));
   const feeds = await text('.sum-feed');
-  ok('feeds since midnight', /Feeds 7\b/.test(feeds), feeds);
-  ok('against what she usually has by this time', feeds.includes('Usually 4 by now'));
-  ok('…and on a whole day', feeds.includes('Avg 6 a day'));
-  ok('more than usual says how many more', (await text('.sum-feed .sum-chip')) === '↑ 3 more');
+  ok('feeds since her day began — not the 2am one', /Feeds 5\b/.test(feeds), feeds);
+  ok('against what she usually has by this time', feeds.includes('Usually 3 by now'));
+  ok('…and on a whole day, night feeds included', feeds.includes('Avg 6 a day'));
+  ok('more than usual says how many more', (await text('.sum-feed .sum-chip')) === '↑ 2 more');
 
   const sleep = await text('.sum-sleep');
-  ok('a night across midnight counts its share of today', /Sleep 6h\b/.test(sleep), sleep);
-  ok('sleep against the same hours on other days', sleep.includes('Usually 6h by now') && sleep.includes('Avg 8h a day'));
-  ok('same as usual is "On track"', (await text('.sum-sleep .sum-chip')) === 'On track');
-  ok('diapers on track too', (await text('.sum-diaper .sum-chip')) === 'On track');
+  ok("last night isn't in today's sleep", /Sleep 2h\b/.test(sleep), sleep);
+  ok('a whole day includes its night, unsplit', sleep.includes('Usually 2h 30m by now') && sleep.includes('Avg 11h 30m a day'), sleep);
+  ok('less than usual says how much less', (await text('.sum-sleep .sum-chip')) === '↓ 30m less');
+  ok('diapers on track', (await text('.sum-diaper .sum-chip')) === 'On track');
   ok('a tracker with no history yet says so',
     (await text('.sum-solids')).includes('Not enough days') && !(await p.isVisible('.sum-solids .sum-chip')));
   ok('a tile per tracker that counts', (await p.locator('.sum-tile').count()) === 4);
   ok('the meter fills to today against a whole day',
-    parseFloat(await p.$eval('.sum-feed .sum-meter i', i => i.style.width)) === 100);
+    Math.abs(parseFloat(await p.$eval('.sum-feed .sum-meter i', i => i.style.width)) - 83.3) < 0.1);
 
   // The 7-day charts: one per tracker with something logged.
   ok('a chart each for sleep, feeds and diapers',
     (await p.$$eval('#statsBody .stat-block h3', hs => hs.map(h => h.textContent).join())) === 'Sleep per day,Feeds per day,Diapers per day');
   const feedChart = p.locator('#statsBody .stat-block', { hasText: 'Feeds per day' });
   ok('the chart reads out her usual day', (await feedChart.locator('.chart-readout').textContent()) === 'Usually 6 a day');
-  ok("today's column carries its value", (await feedChart.locator('.c-cap').textContent()) === '7');
+  ok("today's column carries its value", (await feedChart.locator('.c-cap').textContent()) === '5');
   ok('seven columns, today last', (await feedChart.locator('.c-day').allTextContents()).at(-1) === 'Today'
     && (await feedChart.locator('.col').count()) === 7);
-  await feedChart.locator('[data-col="0"]').click();
-  const sevenAgo = new Date(mid(6)).toLocaleDateString([], { weekday: 'long' });
-  ok('tapping a day reads it out', (await feedChart.locator('.chart-readout').textContent()) === `${sevenAgo} · 6`,
-    await feedChart.locator('.chart-readout').textContent());
-  await feedChart.locator('[data-col="0"]').click();
-  ok('tapping it again goes back', (await feedChart.locator('.chart-readout').textContent()) === 'Usually 6 a day');
+  const sleepChart = p.locator('#statsBody .stat-block', { hasText: 'Sleep per day' });
+  await sleepChart.locator('[data-col="5"]').click();
+  ok('yesterday holds its whole night', (await sleepChart.locator('.chart-readout').textContent()) === `${await p.evaluate(() =>
+    new Date(2026, 9, 30).toLocaleDateString([], { weekday: 'long' }))} · 11h 30m`, await sleepChart.locator('.chart-readout').textContent());
+  await sleepChart.locator('[data-col="5"]').click();
+  ok('tapping it again goes back', (await sleepChart.locator('.chart-readout').textContent()) === 'Usually 11h 30m a day');
+
+  // History groups by her day too: the 9pm–3am night sits whole under Yesterday.
+  await p.click('.tab[data-tab="history"]');
+  const yesterday = (await p.locator('.day-group', { hasText: 'Yesterday' }).locator('.day-head span').textContent());
+  ok('History: yesterday is a whole day and night', yesterday.includes('6 feeds') && yesterday.includes('11h 30m sleep'), yesterday);
+  const yTimes = await p.locator('.day-group', { hasText: 'Yesterday' }).locator('.entry-time').allTextContents();
+  ok('History: the 2am feed is listed under yesterday', yTimes.filter(t => /^2:00\s*AM/.test(t)).length === 1, yTimes.join(' | '));
 
   ok('the greeting knows the night shift', await p.evaluate(() =>
     Home.greeting(3).text === 'Night shift' && Home.greeting(9).text === 'Good morning' && Home.greeting(15).text === 'Good afternoon'));
+  await ctx.close();
+}
+{
+  // 3am: the night so far is still today, and today began yesterday morning.
+  const now = new Date(2026, 10, 1, 3, 0).getTime();
+  const { ctx, p } = await phone('3am', { time: now, settings: { dayStart: 'fixed', dayStartTime: '06:00' },
+    records: [{ type: 'sleep', at: now - 6 * H, end: now - H }, { type: 'feed', at: now - 30 * 60000, data: { method: 'bottle' } }] });
+  const sleep = (await p.textContent('.sum-sleep')).replace(/\s+/g, ' ');
+  ok('at 3am, the 9pm–2am sleep counts toward today', /Sleep 5h\b/.test(sleep), sleep);
+  ok('…which began yesterday morning', (await p.textContent('#summaryMeta')).endsWith('yesterday'));
+  await p.click('.tab[data-tab="history"]');
+  ok('…and History calls it Today', (await p.locator('.day-head h3').allTextContents()).join() === 'Today');
+  await ctx.close();
+}
+
+/* ── 3b. sunrise ─────────────────────────────────────────────── */
+{
+  const melbourne = { timezoneId: 'Australia/Melbourne', geolocation: { latitude: -37.8136, longitude: 144.9631 },
+    permissions: ['geolocation'] };
+  const now = new Date('2026-11-01T15:00:00+11:00').getTime();
+  const { ctx, p } = await phone('sunrise', { time: now, context: melbourne,
+    records: [{ type: 'sleep', at: now - 3 * H, end: now - 2 * H }] });
+  ok('no location yet: the day starts at 6am', (await p.textContent('#summaryMeta')) === 'since 6:00 AM',
+    await p.textContent('#summaryMeta'));
+  ok('…and Home offers sunrise', await hasAlert(p, /Start her day at sunrise/));
+  await p.click('[data-act="locate"]');
+  await p.waitForFunction(() => Store.settings().place, null, { timeout: 3000 }).catch(() => {});
+  ok('the location is kept to about a kilometre',
+    JSON.stringify(await p.evaluate(() => Store.settings().place)) === '{"lat":-37.81,"lon":144.96}');
+  const meta = await p.textContent('#summaryMeta');
+  ok('her day now starts at sunrise', /^since sunrise, 6:1\d AM$/.test(meta), meta);
+  // A reference almanac (astral) has Melbourne's sunrise at 6:13:52 that day.
+  const rise = await p.evaluate(() => Day.today().at);
+  ok("sunrise is within two minutes of the almanac's",
+    Math.abs(rise - new Date('2026-11-01T06:13:52+11:00').getTime()) < 2 * 60000, new Date(rise).toISOString());
+  ok('the offer goes once it is set', !(await hasAlert(p, /Start her day at sunrise/)));
+  ok('the location never goes into a backup', await p.evaluate(() => !('place' in Store.exportData().settings)));
+
+  await p.click('.tab[data-tab="settings"]');
+  ok('Settings shows sunrise today', /Sunrise today 6:1\d AM/.test(await p.textContent('#daySunrise')),
+    await p.textContent('#daySunrise'));
+  await p.selectOption('#setDayStart', 'fixed');
+  ok('a set time instead hides the location', !(await p.isVisible('#dayPlaceRow')) && await p.isVisible('#dayTimeRow'));
+  await p.fill('#setDayTime', '05:30');
+  await p.dispatchEvent('#setDayTime', 'change');
+  ok('and the day starts then', await p.evaluate(() =>
+    new Date(Day.today().at).toTimeString().startsWith('05:30') && Day.today().sunrise === false));
   await ctx.close();
 }
 

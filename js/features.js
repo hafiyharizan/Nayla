@@ -153,8 +153,6 @@ const Features = (() => {
     noun: 'sleep',
     icon: '🌙',
     quick: true,
-    /** Spans time, so day totals count overlap rather than the start instant. */
-    spansTime: true,
     fields: [
       { name: 'at', input: 'datetime', label: 'Fell asleep' },
       { name: 'end', input: 'datetime', label: 'Woke up', optional: true },
@@ -195,11 +193,14 @@ const Features = (() => {
       return `ended ${Fmt.clock(record.end)}`;
     },
 
-    tally(record, totals, { from, to }) {
-      const end = record.end ?? Date.now();
-      const overlap = Math.min(end, to) - Math.max(record.at, from);
-      if (overlap > 0) {
-        totals.sleepMs = (totals.sleepMs || 0) + overlap;
+    /* Counted whole on the day it started (see day.js), so a night is
+     * never split at midnight. A sleep still going counts up to now; `cut`
+     * stops it at a time of day, to compare a past day with today so far. */
+    tally(record, totals, { cut = Infinity } = {}) {
+      const end = Math.min(record.end ?? Date.now(), cut);
+      const slept = end - record.at;
+      if (slept > 0) {
+        totals.sleepMs = (totals.sleepMs || 0) + slept;
         totals.naps = (totals.naps || 0) + 1;
       }
     },

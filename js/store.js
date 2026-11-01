@@ -30,6 +30,9 @@ const Store = (() => {
     growthUnits: 'metric',     // 'metric' (kg, cm) or 'imperial' (lb, in)
     sex: 'girl',               // picks the WHO growth chart
     trackers: {},              // { solids: false, … } — anything missing is on
+    dayStart: 'sunrise',       // her day starts at 'sunrise' or at 'fixed' dayStartTime
+    dayStartTime: '06:00',     // also the fallback until sunrise can be worked out
+    place: null,               // { lat, lon } to about a km, for sunrise; this phone only
     syncUrl: '',
     syncKey: '',
     syncCode: '',
@@ -175,19 +178,6 @@ const Store = (() => {
       return true;
     },
 
-    /** Records overlapping a local day, for the daily summaries. */
-    forDay(day) {
-      const from = new Date(day); from.setHours(0, 0, 0, 0);
-      const to = new Date(from); to.setDate(to.getDate() + 1);
-      const a = from.getTime(), b = to.getTime();
-      return live().filter(r => {
-        // An unfinished sleep runs up to now, not zero-length — otherwise a
-        // nap in progress since before midnight counts toward no day at all.
-        const end = r.end ?? Date.now();
-        return r.at < b && end >= a;
-      });
-    },
-
     /* ── sync surface ──────────────────────────────────────── */
 
     /** Everything changed locally and not yet accepted by the server. */
@@ -268,9 +258,10 @@ const Store = (() => {
     },
   };
 
-  /** Settings minus the sync credentials — backups shouldn't carry the secrets. */
+  /** Settings minus the sync credentials and location — backups shouldn't
+   *  carry the secrets, or where you live. */
   function publicSettings() {
-    const { syncUrl, syncKey, syncCode, photoKey, lastPulledAt, lastFullPullAt, ...rest } = settings;
+    const { syncUrl, syncKey, syncCode, photoKey, lastPulledAt, lastFullPullAt, place, ...rest } = settings;
     return rest;
   }
 
