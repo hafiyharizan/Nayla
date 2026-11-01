@@ -1,14 +1,18 @@
 /* Her day: when one day ends and the next begins.
  *
- * A day runs from sunrise to the next sunrise, not midnight to midnight —
- * the way a family reckons it, and the way the night belongs to the day
- * before it. So a sleep from 10pm to 3am is one night's sleep, counted in
- * full on the day it started, never split in two at midnight.
+ * Four ways, picked per phone in Settings → Her day:
+ *   midnight   the default — calendar days
+ *   fixed      a time of your choosing, such as 6:00am
+ *   sunrise    worked out each day for where you are
+ *   subuh      dawn (Fajr), by a chosen calculation method
  *
- * Sunrise is worked out on the phone from a location the phone is given
- * once (Settings → Her day), rounded to about a kilometre and kept on this
- * phone only. Until it has one, or where the sun doesn't rise (polar
- * winter), the day starts at a set time instead — 6:00am unless changed.
+ * Whichever it is, an entry counts on the day it started — a sleep in full
+ * — so a 10pm–3am sleep is one sleep on one day, never split in two.
+ *
+ * Sunrise and Subuh are worked out on the phone from a location given once,
+ * rounded to about a kilometre and kept on this phone only. Until it has
+ * one, or on a day the sun doesn't get that low (polar summer), the day
+ * starts at the set time instead.
  *
  * Everything that adds up "a day" goes through here: the Today tiles and
  * 7-day charts on Home, Today on Now, and the day groups in History.
@@ -17,17 +21,28 @@ const Day = (() => {
   const RAD = Math.PI / 180;
   const DAY_MS = 86400000;
 
-  /* ── sunrise ─────────────────────────────────────────────── */
+  /* ── the sun ─────────────────────────────────────────────── */
   /* The NOAA-derived formulas used by SunCalc (Vladimir Agafonkin, BSD),
    * good to about a minute — far finer than a day boundary needs. */
+
+  /* Subuh begins when the sun is this far below the horizon before dawn.
+   * Authorities differ; these are the common ones. */
+  const SUBUH = {
+    jakim:  { angle: 20,   label: 'Malaysia, Singapore (20°)' },
+    mwl:    { angle: 18,   label: 'Muslim World League (18°)' },
+    makkah: { angle: 18.5, label: 'Umm al-Qura, Makkah (18.5°)' },
+    egypt:  { angle: 19.5, label: 'Egypt (19.5°)' },
+    isna:   { angle: 15,   label: 'North America, ISNA (15°)' },
+  };
   const J1970 = 2440588, J2000 = 2451545, J0 = 0.0009;
   const OBLIQUITY = RAD * 23.4397;
   const toDays = ms => ms / DAY_MS - 0.5 + J1970 - J2000;
   const fromJulian = j => (j + 0.5 - J1970) * DAY_MS;
 
-  /** Sunrise (ms) on the local calendar day containing `ms`, or null when
-   *  the sun doesn't rise or set there that day. */
-  function sunrise(ms, lat, lon) {
+  /** When the sun reaches `altitude` degrees (rising) on the local calendar
+   *  day containing `ms` — sunrise at -0.833°, Subuh at -20° or so — or null
+   *  when it doesn't get there that day. */
+  function sunAt(ms, lat, lon, altitude) {
     const noon = new Date(ms); noon.setHours(12, 0, 0, 0);
     const lw = RAD * -lon, phi = RAD * lat;
     const n = Math.round(toDays(noon.getTime()) - J0 - lw / (2 * Math.PI));
@@ -37,19 +52,31 @@ const Day = (() => {
     const L = M + C + RAD * 102.9372 + Math.PI;
     const dec = Math.asin(Math.sin(OBLIQUITY) * Math.sin(L));
     const transit = J2000 + ds + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
-    const cosW = (Math.sin(RAD * -0.833) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec));
+    const cosW = (Math.sin(RAD * altitude) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec));
     if (!(cosW >= -1 && cosW <= 1)) return null;
     return Math.round(fromJulian(transit - Math.acos(cosW) / (2 * Math.PI)));
   }
 
+  const sunrise = (ms, lat, lon) => sunAt(ms, lat, lon, -0.833);
+  const subuh = (ms, lat, lon, method = 'jakim') => sunAt(ms, lat, lon, -(SUBUH[method] || SUBUH.jakim).angle);
+
   /* ── where each day starts ───────────────────────────────── */
   let cache = new Map(), cacheFor = '';
 
+  const MODES = ['midnight', 'fixed', 'sunrise', 'subuh'];
+
   function setup() {
     const s = Store.settings();
+    const mode = MODES.includes(s.dayStartMode) ? s.dayStartMode : 'midnight';
     const [h, m] = String(s.dayStartTime || '06:00').split(':').map(Number);
-    const place = s.dayStart === 'sunrise' && validPlace(s.place) ? s.place : null;
-    return { place, hour: Number.isFinite(h) ? h : 6, minute: Number.isFinite(m) ? m : 0 };
+    const sun = mode === 'sunrise' || mode === 'subuh';
+    return {
+      mode,
+      place: sun && validPlace(s.place) ? s.place : null,
+      method: mode === 'subuh' && SUBUH[s.subuhMethod] ? s.subuhMethod : 'jakim',
+      hour: mode === 'midnight' ? 0 : Number.isFinite(h) ? h : 6,
+      minute: mode === 'midnight' ? 0 : Number.isFinite(m) ? m : 0,
+    };
   }
 
   function validPlace(p) {
@@ -58,7 +85,7 @@ const Day = (() => {
   }
 
   /** When the day starts on the local calendar date containing `ms`, and
-   *  whether that's sunrise or the set time. */
+   *  what that is: 'midnight', 'fixed', 'sunrise' or 'subuh'. */
   function boundary(ms) {
     const cfg = setup();
     const sig = JSON.stringify(cfg);
@@ -66,9 +93,12 @@ const Day = (() => {
     const d = new Date(ms);
     const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
     if (!cache.has(key)) {
-      const rise = cfg.place ? sunrise(ms, cfg.place.lat, cfg.place.lon) : null;
+      const sun = !cfg.place ? null : cfg.mode === 'subuh'
+        ? subuh(ms, cfg.place.lat, cfg.place.lon, cfg.method)
+        : sunrise(ms, cfg.place.lat, cfg.place.lon);
       const fixed = new Date(ms); fixed.setHours(cfg.hour, cfg.minute, 0, 0);
-      cache.set(key, rise != null ? { at: rise, sunrise: true } : { at: fixed.getTime(), sunrise: false });
+      cache.set(key, sun != null ? { at: sun, kind: cfg.mode }
+        : { at: fixed.getTime(), kind: cfg.mode === 'midnight' ? 'midnight' : 'fixed' });
     }
     return cache.get(key);
   }
@@ -105,10 +135,11 @@ const Day = (() => {
     return day.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
   }
 
-  /** How today began: when, and whether at sunrise. */
+  /** How today began: when, and what at — 'midnight', 'fixed', 'sunrise'
+   *  or 'subuh'. */
   function today() {
     const at = start(0);
-    return { at, sunrise: boundary(at).sunrise };
+    return { at, kind: boundary(at).kind };
   }
 
   /* ── adding a day up ─────────────────────────────────────── */
@@ -145,5 +176,5 @@ const Day = (() => {
     });
   }
 
-  return { sunrise, startOf, start, next, key, label, today, totals, validPlace, canLocate, locate };
+  return { SUBUH, sunrise, subuh, startOf, start, next, key, label, today, totals, validPlace, canLocate, locate };
 })();

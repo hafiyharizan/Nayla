@@ -96,7 +96,7 @@ const dayTotal = () => page.evaluate(() => {
 await page.evaluate(() => {
   const start = new Date(Date.now() - 3 * 3600000);
   const hhmm = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-  Store.saveSettings({ dayStart: 'fixed', dayStartTime: hhmm });
+  Store.saveSettings({ dayStartMode: 'fixed', dayStartTime: hhmm });
   Store.add({ type:'sleep', at: Date.now() - 2*3600000, end: null, data:{} });
 });
 await page.waitForTimeout(300);

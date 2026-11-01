@@ -82,23 +82,28 @@ type. Tap an entry to edit or delete it.
 chart and the age in the header), ml/oz, girl/boy chart, kg+cm or lb+in, when her
 day starts, which trackers to show, sync, and backup/restore.
 
-### Her day: sunrise to sunrise
+### Her day: when a day starts
 
-Days don't turn over at midnight. Her day runs from sunrise to the next sunrise — the
-way a family reckons it, with the night belonging to the day before it — and **a sleep
-counts in full on the day it started**. So 10pm to 3am is one sleep on one day, not
-two hours today and three tomorrow; a 2am feed is part of last night; and at 3am,
-History and Today still show the day that began yesterday morning. A sleep that
-starts before sunrise (say 4am to 7am) is still the night's.
+**Settings → Her day** picks when one day ends and the next begins, per phone:
 
-This applies everywhere a day is added up: Today on Home and on Now, the 7-day charts,
-the day groups in History, and when a dismissed alert comes back.
+- **Midnight** — the default: calendar days.
+- **A time I choose** — say 6:00am, so the night belongs to the day before it.
+- **Sunrise** — worked out each day for where you are.
+- **Subuh** — dawn (Fajr), with a choice of calculation: Malaysia, Singapore and
+  Indonesia (20°, the default), Muslim World League (18°), Umm al-Qura (18.5°),
+  Egypt (19.5°) or ISNA (15°). It can differ from your mosque's timetable by a few
+  minutes.
 
-Sunrise is worked out on the phone (the NOAA formulas, good to about a minute) from a
-location shared once — **Settings → Her day → Use my location**, or the tip on Home.
-It is rounded to about a kilometre, kept on that phone only, and left out of backups.
-Until a phone has it, or if you'd rather, the day starts at a set time instead
-(6:00am unless you change it). Settings are per phone, so do this on each one.
+Whichever it is, **an entry counts on the day it started — a sleep in full** — so
+10pm to 3am is one sleep on one day, never two hours on one and three on the next.
+It applies everywhere a day is added up: Today on Home and Now, the 7-day charts,
+History's day groups, and when a dismissed alert comes back. Home's Today header says
+when her day began ("since midnight", "since Subuh, 4:37 AM").
+
+Sunrise and Subuh are worked out on the phone (the NOAA formulas, within a minute or
+two of an almanac) from a location shared once with **Use my location**. It is rounded
+to about a kilometre, kept on that phone only, and left out of backups. Until a phone
+has it — or on a day the sun never gets that low — the day starts at the set time.
 
 ### Turning trackers on and off
 
@@ -258,7 +263,7 @@ js/format.js          durations, clock times, day labels, ml/oz, kg/lb, cm/in
 js/who.js             WHO growth standards (0–24 months) and percentile maths
 js/features.js        the feature registry — what a feed, a meal or a milestone IS
 js/store.js           records + settings, persisted to localStorage
-js/day.js             her day: sunrise to sunrise, and adding a day up
+js/day.js             when her day starts (midnight/time/sunrise/Subuh), adding a day up
 js/sync.js            push/pull/merge against the backend
 js/photos.js          milestone photos: kept on the phone; shared ones encrypted
 js/qr.js              a small QR encoder, for the pairing code

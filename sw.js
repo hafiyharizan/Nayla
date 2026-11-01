@@ -13,7 +13,7 @@
  * actually has something to clean up — the version number itself does no
  * work beyond giving that comparison something to look at.
  */
-const CACHE = 'nayla-v9';
+const CACHE = 'nayla-v10';
 const SHELL = [
   './',
   './index.html',

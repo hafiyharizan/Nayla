@@ -175,7 +175,7 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
 }
 
 /* ── 3. today, against a usual day ────────────────────────── */
-/* Her day runs from 6am (a set time here; sunrise is tested below) to the
+/* Her day runs from 6am (a set time here; the others are tested below) to the
  * next 6am, and a sleep counts whole on the day it started. */
 {
   // 3pm, so "by now" and "a whole day" differ.
@@ -201,7 +201,7 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   recs.push({ type: 'sleep', at: at(0, 13), end: at(0, 14) });
 
   const { ctx, p } = await phone('today', { records: recs, time: now,
-    settings: { dayStart: 'fixed', dayStartTime: '06:00' } });
+    settings: { dayStartMode: 'fixed', dayStartTime: '06:00' } });
   const text = async sel => (await p.textContent(sel)).replace(/\s+/g, ' ').trim();
   ok('Today says when her day began', (await text('#summaryMeta')) === `since ${await p.evaluate(() => Fmt.clock(new Date(2026, 9, 31, 6)))}`,
     await text('#summaryMeta'));
@@ -251,7 +251,7 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
 {
   // 3am: the night so far is still today, and today began yesterday morning.
   const now = new Date(2026, 10, 1, 3, 0).getTime();
-  const { ctx, p } = await phone('3am', { time: now, settings: { dayStart: 'fixed', dayStartTime: '06:00' },
+  const { ctx, p } = await phone('3am', { time: now, settings: { dayStartMode: 'fixed', dayStartTime: '06:00' },
     records: [{ type: 'sleep', at: now - 6 * H, end: now - H }, { type: 'feed', at: now - 30 * 60000, data: { method: 'bottle' } }] });
   const sleep = (await p.textContent('.sum-sleep')).replace(/\s+/g, ' ');
   ok('at 3am, the 9pm–2am sleep counts toward today', /Sleep 5h\b/.test(sleep), sleep);
@@ -261,39 +261,68 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   await ctx.close();
 }
 
-/* ── 3b. sunrise ─────────────────────────────────────────────── */
+/* ── 3b. midnight, sunrise, Subuh ───────────────────────────── */
 {
   const melbourne = { timezoneId: 'Australia/Melbourne', geolocation: { latitude: -37.8136, longitude: 144.9631 },
     permissions: ['geolocation'] };
   const now = new Date('2026-11-01T15:00:00+11:00').getTime();
-  const { ctx, p } = await phone('sunrise', { time: now, context: melbourne,
+  const { ctx, p } = await phone('day start', { time: now, context: melbourne,
     records: [{ type: 'sleep', at: now - 3 * H, end: now - 2 * H }] });
-  ok('no location yet: the day starts at 6am', (await p.textContent('#summaryMeta')) === 'since 6:00 AM',
-    await p.textContent('#summaryMeta'));
-  ok('…and Home offers sunrise', await hasAlert(p, /Start her day at sunrise/));
-  await p.click('[data-act="locate"]');
+  const meta = () => p.textContent('#summaryMeta');
+  ok('midnight by default', (await meta()) === 'since midnight', await meta());
+  ok('no location is asked for by default', !(await p.isVisible('[data-act="locate"]')));
+
+  await p.click('.tab[data-tab="settings"]');
+  ok('midnight needs no other settings', !(await p.isVisible('#dayPlaceRow')) && !(await p.isVisible('#dayTimeRow'))
+    && !(await p.isVisible('#daySubuhRow')));
+
+  await p.selectOption('#setDayStart', 'fixed');
+  ok('a set time shows the time', await p.isVisible('#dayTimeRow') && !(await p.isVisible('#dayPlaceRow')));
+  await p.fill('#setDayTime', '05:30');
+  await p.dispatchEvent('#setDayTime', 'change');
+  ok('and the day starts then', await p.evaluate(() =>
+    new Date(Day.today().at).toTimeString().startsWith('05:30') && Day.today().kind === 'fixed'));
+
+  await p.selectOption('#setDayStart', 'sunrise');
+  ok('sunrise without a location falls back to the set time',
+    (await p.textContent('#daySunrise')).includes('Until then, her day starts at 5:30 AM'));
+  await p.click('#dayLocate');
   await p.waitForFunction(() => Store.settings().place, null, { timeout: 3000 }).catch(() => {});
   ok('the location is kept to about a kilometre',
     JSON.stringify(await p.evaluate(() => Store.settings().place)) === '{"lat":-37.81,"lon":144.96}');
-  const meta = await p.textContent('#summaryMeta');
-  ok('her day now starts at sunrise', /^since sunrise, 6:1\d AM$/.test(meta), meta);
+  ok('Settings shows sunrise today', /^Sunrise today 6:1\d AM/.test(await p.textContent('#daySunrise')),
+    await p.textContent('#daySunrise'));
   // A reference almanac (astral) has Melbourne's sunrise at 6:13:52 that day.
   const rise = await p.evaluate(() => Day.today().at);
   ok("sunrise is within two minutes of the almanac's",
     Math.abs(rise - new Date('2026-11-01T06:13:52+11:00').getTime()) < 2 * 60000, new Date(rise).toISOString());
-  ok('the offer goes once it is set', !(await hasAlert(p, /Start her day at sunrise/)));
-  ok('the location never goes into a backup', await p.evaluate(() => !('place' in Store.exportData().settings)));
 
-  await p.click('.tab[data-tab="settings"]');
-  ok('Settings shows sunrise today', /Sunrise today 6:1\d AM/.test(await p.textContent('#daySunrise')),
-    await p.textContent('#daySunrise'));
-  await p.selectOption('#setDayStart', 'fixed');
-  ok('a set time instead hides the location', !(await p.isVisible('#dayPlaceRow')) && await p.isVisible('#dayTimeRow'));
-  await p.fill('#setDayTime', '05:30');
-  await p.dispatchEvent('#setDayTime', 'change');
-  ok('and the day starts then', await p.evaluate(() =>
-    new Date(Day.today().at).toTimeString().startsWith('05:30') && Day.today().sunrise === false));
+  await p.selectOption('#setDayStart', 'subuh');
+  ok('Subuh offers a calculation method', await p.isVisible('#daySubuhRow')
+    && (await p.$$eval('#setSubuhMethod option', o => o.length)) >= 4);
+  // astral's dawn at 20° below the horizon: 4:23:13; at 18°: 4:35:49.
+  const subuh20 = await p.evaluate(() => Day.today().at);
+  ok('Subuh at 20° (Malaysia) by default, within two minutes of the almanac',
+    Math.abs(subuh20 - new Date('2026-11-01T04:23:13+11:00').getTime()) < 2 * 60000, new Date(subuh20).toISOString());
+  await p.selectOption('#setSubuhMethod', 'mwl');
+  const subuh18 = await p.evaluate(() => Day.today().at);
+  ok('…and at 18° for the Muslim World League',
+    Math.abs(subuh18 - new Date('2026-11-01T04:35:49+11:00').getTime()) < 2 * 60000, new Date(subuh18).toISOString());
+  ok('Settings shows Subuh today', /^Subuh today 4:3\d AM/.test(await p.textContent('#daySunrise')));
+  await p.click('.tab[data-tab="home"]');
+  ok('Home says when her day began', /^since Subuh, 4:3\d AM$/.test(await meta()), await meta());
+  ok('the location never goes into a backup', await p.evaluate(() => !('place' in Store.exportData().settings)));
   await ctx.close();
+}
+{
+  // Phones on the first version defaulted to sunrise. Unless someone set a
+  // location up, they move to midnight.
+  const old = await phone('migrate', { settings: { dayStart: 'sunrise' } });
+  ok('an untouched phone moves to midnight', await old.p.evaluate(() => Store.settings().dayStartMode === 'midnight'));
+  await old.ctx.close();
+  const kept = await phone('migrate-kept', { settings: { dayStart: 'sunrise', place: { lat: -37.81, lon: 144.96 } } });
+  ok('one set up for sunrise keeps it', await kept.p.evaluate(() => Store.settings().dayStartMode === 'sunrise'));
+  await kept.ctx.close();
 }
 
 /* ── 4. the header photo stays on this phone ──────────────── */
