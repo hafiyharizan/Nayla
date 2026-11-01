@@ -85,22 +85,38 @@ await page.evaluate(() => Store.remove(Store.all().find(r => r.type==='sleep' &&
 await page.waitForTimeout(300);
 ok('prompt disappears once fixed', !(await page.isVisible('#fixSleep')));
 
-// And the day-totals bug: a nap running since before midnight counts today
-await page.evaluate(() => {
-  const now = Date.now();
-  const midnight = new Date(); midnight.setHours(0,0,0,0);
-  Store.add({ type:'sleep', at: midnight.getTime() - 2*3600000, end: null, data:{} });
-});
-await page.waitForTimeout(300);
-// Read the Sleep cell itself rather than regex-matching the whole summary —
-// "0m" is a substring of "30m", which made this pass or fail by the minute.
-const sleepCell = await page.evaluate(() => {
+// And the day-totals bug: a sleep still running must count up to now, not as
+// zero. Her day starts 3 hours ago here (a set time), so the test is the same
+// whatever the clock says when it runs.
+const dayTotal = () => page.evaluate(() => {
   const cells = [...document.querySelectorAll('#todaySummary .today-cell')];
   const cell = cells.find(c => c.querySelector('span')?.textContent === 'Sleep');
   return cell ? cell.querySelector('b').textContent.trim() : null;
 });
-ok('an in-progress overnight nap counts toward today',
-   sleepCell !== null && sleepCell !== '0m', `Sleep cell showed "${sleepCell}"`);
+await page.evaluate(() => {
+  const start = new Date(Date.now() - 3 * 3600000);
+  const hhmm = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+  Store.saveSettings({ dayStart: 'fixed', dayStartTime: hhmm });
+  Store.add({ type:'sleep', at: Date.now() - 2*3600000, end: null, data:{} });
+});
+await page.waitForTimeout(300);
+// Read the Sleep cell itself rather than regex-matching the whole summary —
+// "0m" is a substring of "30m", which made this pass or fail by the minute.
+let sleepCell = await dayTotal();
+ok('a sleep still running counts toward today, up to now',
+   sleepCell === '2h', `Sleep cell showed "${sleepCell}"`);
+
+// One that began before her day started belongs to the day before — whole,
+// rather than split at the boundary.
+await page.evaluate(() => {
+  const open = Store.all().find(r => r.type === 'sleep' && r.end == null);
+  Store.remove(open.id);
+  Store.add({ type:'sleep', at: Date.now() - 4*3600000, end: Date.now() - 3600000, data:{} });
+});
+await page.waitForTimeout(300);
+sleepCell = await dayTotal();
+ok('a sleep that began before her day started is not split into it',
+   sleepCell === '0m', `Sleep cell showed "${sleepCell}"`);
 
 console.log(errs.length ? '\nERRORS:\n' + errs.join('\n') : '\nno console errors');
 console.log(fails.length ? `\n${fails.length} FAILING` : '\nall passed');

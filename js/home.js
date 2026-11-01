@@ -41,47 +41,24 @@ const Home = (() => {
     try { localStorage.setItem(DISMISS_KEY, JSON.stringify(all)); } catch { /* fine */ }
   }
 
-  function endOfToday() {
-    const d = new Date(); d.setHours(24, 0, 0, 0);
-    return d.getTime();
-  }
-
-  /* ── totals over any window ──────────────────────────────── */
-  function totalsBetween(from, to) {
-    const totals = {};
-    for (const r of Store.all()) {
-      const f = Features.get(r.type);
-      if (!f?.tally || !on(r.type)) continue;
-      const end = r.end ?? (f.spansTime ? Date.now() : r.at);
-      if (f.spansTime ? (r.at >= to || end <= from) : (r.at < from || r.at >= to)) continue;
-      f.tally(r, totals, { from, to });
-    }
-    return totals;
-  }
-
-  /* Local midnight k days ago, and this same clock time k days ago. Built
-   * from calendar dates rather than by subtracting 24-hour blocks, so the
-   * day a clock changes still lines up. */
-  function dayStart(k) {
-    const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - k);
-    return d.getTime();
-  }
-  function sameTime(k) {
-    const d = new Date(); d.setDate(d.getDate() - k);
-    return d.getTime();
-  }
+  /** A dismissed alert comes back when her next day starts (see day.js). */
+  const endOfToday = () => Day.next(Day.start(0));
 
   /** Today so far (index 0) and the seven whole days before it, each with
-   *  its totals up to this time of day as well. Worked out once per render
-   *  and shared by the Today tiles and the 7-day charts. */
+   *  its totals as far into that day as today has got — so 9am is compared
+   *  with other mornings, not with whole days. Days run sunrise to sunrise
+   *  (day.js). Worked out once per render and shared by the Today tiles
+   *  and the 7-day charts. */
   function days() {
     const now = Date.now();
-    const out = [{ start: dayStart(0), totals: totalsBetween(dayStart(0), now) }];
+    const into = now - Day.start(0);
+    const out = [{ start: Day.start(0), totals: Day.totals(Day.start(0), now) }];
     for (let k = 1; k <= 7; k++) {
+      const start = Day.start(k);
       out.push({
-        start: dayStart(k),
-        totals: totalsBetween(dayStart(k), dayStart(k - 1)),
-        soFar: totalsBetween(dayStart(k), sameTime(k)),
+        start,
+        totals: Day.totals(start, Day.start(k - 1)),
+        soFar: Day.totals(start, start + into, start + into),
       });
     }
     return out;
@@ -204,22 +181,23 @@ const Home = (() => {
       }
     }
 
-    /* diapers: fewer wet ones than usual, judged only late in the day */
-    if (on('diaper') && new Date().getHours() >= 15) {
+    /* diapers: fewer wet ones than usual, judged only late in the day (and
+     * not overnight, when changes are naturally fewer) */
+    const dayBegan = Day.start(0);
+    if (on('diaper') && now - dayBegan >= 9 * HOUR && new Date().getHours() >= 15) {
       const wet = r => r.data.kind === 'wet' || r.data.kind === 'both';
-      const start = new Date(); start.setHours(0, 0, 0, 0);
       const days = [];
       for (let k = 1; k <= 7; k++) {
-        const from = start.getTime() - k * DAY;
-        const list = Store.byType('diaper').filter(r => r.at >= from && r.at < from + DAY);
+        const from = Day.start(k), to = Day.start(k - 1);
+        const list = Store.byType('diaper').filter(r => r.at >= from && r.at < to);
         if (list.length) days.push(list.filter(wet).length);
       }
       if (days.length >= 3) {
         const usual = days.reduce((a, b) => a + b, 0) / days.length;
-        const today = Store.byType('diaper').filter(r => r.at >= start.getTime() && wet(r)).length;
-        const soFar = usual * ((now - start.getTime()) / DAY);
+        const today = Store.byType('diaper').filter(r => r.at >= dayBegan && wet(r)).length;
+        const soFar = usual * ((now - dayBegan) / DAY);
         if (usual >= 4 && today < soFar * 0.5) {
-          out.push({ id: `wet:${Fmt.dayKey(now)}`, level: 'info', icon: '💧',
+          out.push({ id: `wet:${Day.key(now)}`, level: 'info', icon: '💧',
             title: 'Fewer wet diapers than usual',
             body: `${today} so far today — she usually has about ${Math.round(usual)} a day. Keep an eye on feeds, and call your clinic if she seems unwell.`,
             action: { label: 'Log a diaper', act: 'log:diaper' } });
@@ -280,6 +258,16 @@ const Home = (() => {
             action: { label: 'Add', act: 'log:growth' }, dismissDays: 7 });
         }
       }
+    }
+
+    /* her day: offer sunrise once sleep is being logged and the phone
+     * doesn't yet know where it is */
+    if (on('sleep') && s.dayStart === 'sunrise' && !Day.validPlace(s.place) && Day.canLocate() &&
+        Store.byType('sleep').length) {
+      out.push({ id: 'day-sunrise', level: 'tip', icon: '🌅',
+        title: 'Start her day at sunrise',
+        body: `Share roughly where you are, once, and her days run sunrise to sunrise. It stays on this phone. Until then they start at ${Fmt.clock(new Date(`2000-01-01T${s.dayStartTime || '06:00'}`))}.`,
+        action: { label: 'Use my location', act: 'locate' }, dismissDays: 30 });
     }
 
     /* her month birthdays */
@@ -398,7 +386,7 @@ const Home = (() => {
     feedgap: 'feed', wet: 'diaper',
     allergen: 'solids', signs: 'solids', 'solids-ready': 'solids', allergens: 'solids',
     'growth-first': 'growth', 'growth-due': 'growth',
-    month: 'milestone',
+    month: 'milestone', 'day-sunrise': 'feed',
   };
 
   function renderAlerts() {
@@ -421,11 +409,21 @@ const Home = (() => {
 
   const CHIP = { up: '↑', down: '↓' };
 
+  /** "since sunrise, 6:14 AM" — or "since 6:00 AM", or "…yesterday" at 3am,
+   *  so it's plain when her day began. */
+  function sinceWhen() {
+    const t = Day.today();
+    const calToday = Fmt.dayKey(t.at) === Fmt.dayKey(Date.now());
+    const when = `${Fmt.clock(t.at)}${calToday ? '' : ' yesterday'}`;
+    return t.sunrise ? `since sunrise, ${when}` : `since ${when}`;
+  }
+
   function renderToday(week) {
     const tiles = today(week);
     const box = document.getElementById('homeSummary');
     box.hidden = !tiles.length;
     document.getElementById('summaryHead').hidden = !tiles.length;
+    document.getElementById('summaryMeta').textContent = sinceWhen();
     box.innerHTML = tiles.map((t, i) => {
       const chip = t.trend === 'same'
         ? `<span class="sum-chip is-same">On track</span>`
@@ -547,7 +545,7 @@ const Home = (() => {
   }
 
   /* ── wiring ──────────────────────────────────────────────── */
-  function wire({ openSheet, openEntry, toggleSleep, rerender, toast }) {
+  function wire({ openSheet, openEntry, toggleSleep, locate, rerender, toast }) {
     const view = document.getElementById('view-home');
     view.addEventListener('click', e => {
       const x = e.target.closest('[data-dismiss]');
@@ -565,6 +563,7 @@ const Home = (() => {
       if (kind === 'log') openSheet(arg);
       else if (kind === 'entry') openEntry(arg);
       else if (kind === 'sleep') toggleSleep();
+      else if (kind === 'locate') locate();
     });
 
     view.addEventListener('keydown', e => {

@@ -1030,6 +1030,11 @@ body[data-view="home"] .topbar { display: none; }
 .tracker-text b { display: block; font-size: 15px; font-weight: 500; letter-spacing: -.02em; }
 .tracker-text em { display: block; font-style: normal; font-size: 12.5px; color: var(--text-dim); }
 .tracker-foot { margin: 14px 0 0; }
+.field[hidden] { display: none; }
+
+/* ── settings: her day ─────────────────────────────────────── */
+.day-now { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--text-soft); }
+#dayLocate { align-self: flex-start; }
 
 /* ── the Growing tab ───────────────────────────────────────── */
 .grow-section { margin-bottom: 8px; }

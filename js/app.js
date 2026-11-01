@@ -158,7 +158,7 @@
   }
 
   function renderToday(settings) {
-    const totals = dayTotals(new Date());
+    const totals = dayTotals(Date.now());
     const cells = enabled().filter(f => f.todayCell);
     // Up to three across; four sit as a tidy 2×2 rather than three and a straggler.
     $('#todaySummary').style.setProperty('--cols', cells.length === 4 ? 2 : Math.min(3, cells.length) || 1);
@@ -172,22 +172,11 @@
     }).join('');
   }
 
-  /** Totals for a local day. Features that span time count their overlap, so
-   *  a sleep across midnight is credited to both days. */
-  function dayTotals(date) {
-    const from = new Date(date); from.setHours(0, 0, 0, 0);
-    const to = new Date(from); to.setDate(to.getDate() + 1);
-    const a = from.getTime(), b = to.getTime();
-    const window = { from: a, to: Math.min(b, Date.now()) };
-
-    const totals = {};
-    for (const record of Store.forDay(from)) {
-      const feature = Features.get(record.type);
-      if (!feature?.tally) continue;
-      if (!feature.spansTime && !(record.at >= a && record.at < b)) continue;
-      feature.tally(record, totals, window);
-    }
-    return totals;
+  /** Totals for her day containing `ms` — sunrise to sunrise, with each
+   *  sleep counted whole on the day it started (see day.js). */
+  function dayTotals(ms) {
+    const from = Day.startOf(ms);
+    return Day.totals(from, Day.next(from));
   }
 
   /* ── record lists ────────────────────────────────────────── */
@@ -236,21 +225,21 @@
 
     const groups = new Map();
     for (const r of records) {
-      const key = Fmt.dayKey(r.at);
+      const key = Day.key(r.at);
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(r);
     }
 
     target.innerHTML = [...groups.values()].map(group => {
-      const totals = dayTotals(new Date(group[0].at));
+      const totals = dayTotals(group[0].at);
       const summary = enabled()
         .map(f => f.todayCell?.(totals, settings))
         .filter(Boolean)
         .map(c => `${c.value} ${c.label.toLowerCase()}`)
         .join(' · ');
       return `<div class="day-group">
-        <div class="day-head"><h3>${Fmt.dayLabel(group[0].at)}</h3><span>${escapeHtml(summary)}</span></div>
-        <ul class="entries" data-day="${Fmt.dayKey(group[0].at)}"></ul>
+        <div class="day-head"><h3>${Day.label(group[0].at)}</h3><span>${escapeHtml(summary)}</span></div>
+        <ul class="entries" data-day="${Day.key(group[0].at)}"></ul>
       </div>`;
     }).join('');
 
@@ -393,6 +382,7 @@
     setIfIdle($('#setUnits'), s.units);
     setIfIdle($('#setSex'), s.sex);
     setIfIdle($('#setGrowthUnits'), s.growthUnits);
+    renderDaySettings(s);
     Home.hasPickedHero().then(has => { $('#homePhotoRow').hidden = !has; });
     renderTrackers();
     // Show what sync is really using. These fall back to config.js, so
@@ -409,6 +399,52 @@
       : 'Everything is stored on this device only. Nothing is uploaded anywhere.';
     renderSyncStatus();
   }
+
+  /* Her day: sunrise from this phone's location, or a set time. */
+  let locating = false;
+
+  function renderDaySettings(s) {
+    setIfIdle($('#setDayStart'), s.dayStart);
+    setIfIdle($('#setDayTime'), s.dayStartTime);
+    const sunrise = s.dayStart === 'sunrise';
+    const place = Day.validPlace(s.place) ? s.place : null;
+    $('#dayPlaceRow').hidden = !sunrise;
+    $('#dayTimeRow').hidden = sunrise;
+    $('#dayLocate').hidden = !Day.canLocate();
+    $('#dayLocate').disabled = locating;
+    $('#dayLocate').textContent = locating ? 'Finding you…' : place ? 'Update location' : 'Use my location';
+    if (!sunrise) return;
+
+    const fallback = Fmt.clock(new Date(`2000-01-01T${s.dayStartTime || '06:00'}`));
+    const rise = place && Day.sunrise(Date.now(), place.lat, place.lon);
+    const tomorrow = place && Day.sunrise(Date.now() + 86400000, place.lat, place.lon);
+    $('#daySunrise').textContent = !place
+      ? `Sunrise needs to know roughly where you are. It stays on this phone. Until then, her day starts at ${fallback}.`
+      : rise == null
+        ? `No sunrise where you are today, so her day starts at ${fallback}.`
+        : `Sunrise today ${Fmt.clock(rise)}${tomorrow ? `, tomorrow ${Fmt.clock(tomorrow)}` : ''}. Worked out on this phone from where you are.`;
+  }
+
+  async function locate() {
+    locating = true;
+    renderDaySettings(Store.settings());
+    try {
+      await Day.locate();
+      const t = Day.today();
+      toast(t.sunrise ? `Her day now starts at sunrise — ${Fmt.clock(t.at)} today` : 'Location saved');
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      locating = false;
+      render();
+    }
+  }
+
+  $('#dayLocate').addEventListener('click', locate);
+  $('#setDayStart').addEventListener('change', e => Store.saveSettings({ dayStart: e.target.value }));
+  $('#setDayTime').addEventListener('change', e => {
+    if (/^\d{2}:\d{2}$/.test(e.target.value)) Store.saveSettings({ dayStartTime: e.target.value });
+  });
 
   const TRACKER_NOTES = {
     feed: 'Bottle and breast feeds',
@@ -627,6 +663,7 @@
     openSheet: type => openSheet(type),
     openEntry: id => { const r = Store.get(id); if (r) openSheet(r.type, r); },
     toggleSleep,
+    locate,
     rerender: render,
     toast,
   });
