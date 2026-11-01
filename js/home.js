@@ -260,16 +260,6 @@ const Home = (() => {
       }
     }
 
-    /* her day: offer sunrise once sleep is being logged and the phone
-     * doesn't yet know where it is */
-    if (on('sleep') && s.dayStart === 'sunrise' && !Day.validPlace(s.place) && Day.canLocate() &&
-        Store.byType('sleep').length) {
-      out.push({ id: 'day-sunrise', level: 'tip', icon: '🌅',
-        title: 'Start her day at sunrise',
-        body: `Share roughly where you are, once, and her days run sunrise to sunrise. It stays on this phone. Until then they start at ${Fmt.clock(new Date(`2000-01-01T${s.dayStartTime || '06:00'}`))}.`,
-        action: { label: 'Use my location', act: 'locate' }, dismissDays: 30 });
-    }
-
     /* her month birthdays */
     if (s.dob && months != null && months < 24) {
       const next = monthBirthday(s.dob);
@@ -386,7 +376,7 @@ const Home = (() => {
     feedgap: 'feed', wet: 'diaper',
     allergen: 'solids', signs: 'solids', 'solids-ready': 'solids', allergens: 'solids',
     'growth-first': 'growth', 'growth-due': 'growth',
-    month: 'milestone', 'day-sunrise': 'feed',
+    month: 'milestone',
   };
 
   function renderAlerts() {
@@ -409,13 +399,15 @@ const Home = (() => {
 
   const CHIP = { up: '↑', down: '↓' };
 
-  /** "since sunrise, 6:14 AM" — or "since 6:00 AM", or "…yesterday" at 3am,
-   *  so it's plain when her day began. */
+  /** "since midnight", "since 6:00 AM", "since Subuh, 4:37 AM" — and
+   *  "…yesterday" at 3am — so it's plain when her day began. */
   function sinceWhen() {
     const t = Day.today();
+    if (t.kind === 'midnight') return 'since midnight';
     const calToday = Fmt.dayKey(t.at) === Fmt.dayKey(Date.now());
     const when = `${Fmt.clock(t.at)}${calToday ? '' : ' yesterday'}`;
-    return t.sunrise ? `since sunrise, ${when}` : `since ${when}`;
+    const name = { sunrise: 'sunrise', subuh: 'Subuh' }[t.kind];
+    return name ? `since ${name}, ${when}` : `since ${when}`;
   }
 
   function renderToday(week) {
@@ -545,7 +537,7 @@ const Home = (() => {
   }
 
   /* ── wiring ──────────────────────────────────────────────── */
-  function wire({ openSheet, openEntry, toggleSleep, locate, rerender, toast }) {
+  function wire({ openSheet, openEntry, toggleSleep, rerender, toast }) {
     const view = document.getElementById('view-home');
     view.addEventListener('click', e => {
       const x = e.target.closest('[data-dismiss]');
@@ -563,7 +555,6 @@ const Home = (() => {
       if (kind === 'log') openSheet(arg);
       else if (kind === 'entry') openEntry(arg);
       else if (kind === 'sleep') toggleSleep();
-      else if (kind === 'locate') locate();
     });
 
     view.addEventListener('keydown', e => {

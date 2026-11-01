@@ -161,9 +161,15 @@
       <label class="field">
         <span>A new day starts at</span>
         <select id="setDayStart">
+          <option value="midnight">Midnight</option>
+          <option value="fixed">A time I choose</option>
           <option value="sunrise">Sunrise</option>
-          <option value="fixed">A set time</option>
+          <option value="subuh">Subuh</option>
         </select>
+      </label>
+      <label class="field" id="daySubuhRow">
+        <span>Subuh calculation</span>
+        <select id="setSubuhMethod"></select>
       </label>
       <div class="field" id="dayPlaceRow">
         <p class="day-now" id="daySunrise"></p>
@@ -173,9 +179,9 @@
         <span>Time</span>
         <input type="time" id="setDayTime">
       </label>
-      <p class="muted">Totals run from one day's start to the next, so a night belongs
-        to the day before it. A sleep counts in full on the day it started — 10pm to
-        3am is one sleep, never split at midnight.</p>
+      <p class="muted">Totals run from one day's start to the next. Whichever you pick,
+        a sleep counts in full on the day it started — 10pm to 3am is one sleep, never
+        split in two.</p>
     </div>
 
     <h2 class="section-title">Trackers</h2>

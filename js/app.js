@@ -400,29 +400,38 @@
     renderSyncStatus();
   }
 
-  /* Her day: sunrise from this phone's location, or a set time. */
+  /* Her day: midnight, a set time, or sunrise / Subuh from this phone's location. */
   let locating = false;
+  $('#setSubuhMethod').innerHTML = Object.entries(Day.SUBUH)
+    .map(([k, m]) => `<option value="${k}">${escapeHtml(m.label)}</option>`).join('');
 
   function renderDaySettings(s) {
-    setIfIdle($('#setDayStart'), s.dayStart);
+    const mode = s.dayStartMode || 'midnight';
+    setIfIdle($('#setDayStart'), mode);
     setIfIdle($('#setDayTime'), s.dayStartTime);
-    const sunrise = s.dayStart === 'sunrise';
+    setIfIdle($('#setSubuhMethod'), s.subuhMethod || 'jakim');
+    const sun = mode === 'sunrise' || mode === 'subuh';
     const place = Day.validPlace(s.place) ? s.place : null;
-    $('#dayPlaceRow').hidden = !sunrise;
-    $('#dayTimeRow').hidden = sunrise;
+    $('#dayPlaceRow').hidden = !sun;
+    $('#daySubuhRow').hidden = mode !== 'subuh';
+    $('#dayTimeRow').hidden = mode !== 'fixed';
     $('#dayLocate').hidden = !Day.canLocate();
     $('#dayLocate').disabled = locating;
     $('#dayLocate').textContent = locating ? 'Finding you…' : place ? 'Update location' : 'Use my location';
-    if (!sunrise) return;
+    if (!sun) return;
 
+    const name = mode === 'subuh' ? 'Subuh' : 'Sunrise';
+    const when = ms => mode === 'subuh'
+      ? Day.subuh(ms, place.lat, place.lon, s.subuhMethod) : Day.sunrise(ms, place.lat, place.lon);
     const fallback = Fmt.clock(new Date(`2000-01-01T${s.dayStartTime || '06:00'}`));
-    const rise = place && Day.sunrise(Date.now(), place.lat, place.lon);
-    const tomorrow = place && Day.sunrise(Date.now() + 86400000, place.lat, place.lon);
+    const today = place && when(Date.now());
+    const tomorrow = place && when(Date.now() + 86400000);
     $('#daySunrise').textContent = !place
-      ? `Sunrise needs to know roughly where you are. It stays on this phone. Until then, her day starts at ${fallback}.`
-      : rise == null
-        ? `No sunrise where you are today, so her day starts at ${fallback}.`
-        : `Sunrise today ${Fmt.clock(rise)}${tomorrow ? `, tomorrow ${Fmt.clock(tomorrow)}` : ''}. Worked out on this phone from where you are.`;
+      ? `${name} needs to know roughly where you are. It stays on this phone. Until then, her day starts at ${fallback}.`
+      : today == null
+        ? `No ${name.toLowerCase()} time where you are today, so her day starts at ${fallback}.`
+        : `${name} today ${Fmt.clock(today)}${tomorrow ? `, tomorrow ${Fmt.clock(tomorrow)}` : ''}. Worked out on this phone from where you are${
+          mode === 'subuh' ? ' — it may differ from your mosque by a few minutes' : ''}.`;
   }
 
   async function locate() {
@@ -431,7 +440,8 @@
     try {
       await Day.locate();
       const t = Day.today();
-      toast(t.sunrise ? `Her day now starts at sunrise — ${Fmt.clock(t.at)} today` : 'Location saved');
+      const name = { sunrise: 'sunrise', subuh: 'Subuh' }[t.kind];
+      toast(name ? `Her day now starts at ${name} — ${Fmt.clock(t.at)} today` : 'Location saved');
     } catch (err) {
       toast(err.message);
     } finally {
@@ -441,7 +451,8 @@
   }
 
   $('#dayLocate').addEventListener('click', locate);
-  $('#setDayStart').addEventListener('change', e => Store.saveSettings({ dayStart: e.target.value }));
+  $('#setDayStart').addEventListener('change', e => Store.saveSettings({ dayStartMode: e.target.value }));
+  $('#setSubuhMethod').addEventListener('change', e => Store.saveSettings({ subuhMethod: e.target.value }));
   $('#setDayTime').addEventListener('change', e => {
     if (/^\d{2}:\d{2}$/.test(e.target.value)) Store.saveSettings({ dayStartTime: e.target.value });
   });
@@ -663,7 +674,6 @@
     openSheet: type => openSheet(type),
     openEntry: id => { const r = Store.get(id); if (r) openSheet(r.type, r); },
     toggleSleep,
-    locate,
     rerender: render,
     toast,
   });

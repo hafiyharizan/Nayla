@@ -30,9 +30,10 @@ const Store = (() => {
     growthUnits: 'metric',     // 'metric' (kg, cm) or 'imperial' (lb, in)
     sex: 'girl',               // picks the WHO growth chart
     trackers: {},              // { solids: false, … } — anything missing is on
-    dayStart: 'sunrise',       // her day starts at 'sunrise' or at 'fixed' dayStartTime
-    dayStartTime: '06:00',     // also the fallback until sunrise can be worked out
-    place: null,               // { lat, lon } to about a km, for sunrise; this phone only
+    dayStartMode: 'midnight',  // her day starts at 'midnight', a 'fixed' time, 'sunrise' or 'subuh'
+    dayStartTime: '06:00',     // the fixed time; also the fallback until the sun can be worked out
+    subuhMethod: 'jakim',      // which Fajr angle — see Day.SUBUH
+    place: null,               // { lat, lon } to about a km, for sunrise/Subuh; this phone only
     syncUrl: '',
     syncKey: '',
     syncCode: '',
@@ -49,7 +50,15 @@ const Store = (() => {
   const listeners = new Set();
 
   function load() {
-    settings = { ...DEFAULT_SETTINGS, ...readJson(SETTINGS_KEY, {}) };
+    const saved = readJson(SETTINGS_KEY, {});
+    // The first version had `dayStart` ('sunrise' by default). Midnight is the
+    // default now; a phone keeps sunrise only if someone actually set it up.
+    if (!('dayStartMode' in saved) && 'dayStart' in saved) {
+      saved.dayStartMode = saved.dayStart === 'fixed' ? 'fixed'
+        : saved.dayStart === 'sunrise' && saved.place ? 'sunrise' : 'midnight';
+    }
+    delete saved.dayStart;
+    settings = { ...DEFAULT_SETTINGS, ...saved };
     const stored = readJson(KEY, null);
     if (stored) {
       records = stored.filter(isRecord);
