@@ -589,7 +589,16 @@ input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; marg
 input[type="date"], input[type="time"], input[type="datetime-local"] {
   font-family: var(--sans);
   letter-spacing: -.01em;
+  /* iOS Safari gives these a native min-width that overflows the card,
+     and centres the value. Drop the native look so width: 100% holds. */
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
 }
+input::-webkit-date-and-time-value { text-align: left; margin: 0; }
 input::-webkit-calendar-picker-indicator {
   opacity: .4;
   cursor: pointer;
