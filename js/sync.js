@@ -52,6 +52,7 @@ const Sync = (() => {
       url: (s.syncUrl || Config.url || '').replace(/\/+$/, ''),
       key: s.syncKey || Config.anonKey || '',
       code: s.syncCode || '',
+      guest: s.guestToken || '',      // a babysitter's phone: see guest.js
     };
   }
 
@@ -60,7 +61,7 @@ const Sync = (() => {
    * The key was never the secret here; the pairing code is. */
   function enabled() {
     const c = config();
-    return Boolean(c.url && c.code);
+    return Boolean(c.url && (c.code || c.guest));
   }
 
   function announce() { listeners.forEach(fn => fn(status())); }
@@ -128,14 +129,22 @@ const Sync = (() => {
     state.error = null;
     announce();
 
-    const code = config().code;
+    const { code, guest } = config();
+    // A guest's phone talks to the guest functions with its own token; the
+    // server decides what it may see and change.
+    const as = guest
+      ? { push: 'nayla_guest_push', pull: 'nayla_guest_pull', auth: { p_token: guest } }
+      : { push: 'nayla_sync_push', pull: 'nayla_sync_pull', auth: { p_code: code } };
     try {
+      if (guest) Guest.apply(await rpc('nayla_guest_info', as.auth));
+
       // Pushed in batches: the server refuses more than 500 rows at once, and
       // a first import or a re-keyed household hands over the entire log.
-      const pending = Store.pending();
+      // A view-only guest has nothing to push.
+      const pending = guest && !Guest.canLog() ? [] : Store.pending();
       for (let i = 0; i < pending.length; i += PUSH_BATCH) {
         const batch = pending.slice(i, i + PUSH_BATCH);
-        await rpc('nayla_sync_push', { p_code: code, p_rows: batch.map(toRow) });
+        await rpc(as.push, { ...as.auth, p_rows: batch.map(toRow) });
         Store.markPushed(batch.map(r => r.id));
       }
 
@@ -146,7 +155,7 @@ const Sync = (() => {
       const full = Date.now() - lastFull > FULL_RESYNC_MS;
       const since = full ? 0 : Math.max(0, mark - PULL_OVERLAP);
 
-      const rows = await pullFrom(code, since);
+      const rows = await pullFrom(as, since);
       Store.merge(rows.map(fromRow));
 
       // Never let the mark slide backwards: the overlap is a re-read, not a
@@ -159,6 +168,9 @@ const Sync = (() => {
 
       state.lastSyncedAt = Date.now();
     } catch (err) {
+      // The family removed this guest, or its time ran out: nothing of
+      // theirs stays on this phone.
+      if (guest && Guest.ended(err)) { Guest.wipe(true); return status(); }
       console.warn('Sync failed', err);
       state.error = friendly(err);
     } finally {
@@ -170,10 +182,10 @@ const Sync = (() => {
 
   /** Page through everything above `since`, so a long backlog can't be cut
    *  off by the server's row limit. */
-  async function pullFrom(code, since) {
+  async function pullFrom(as, since) {
     let cursor = since, all = [], pages = 0;
     for (;;) {
-      const rows = await rpc('nayla_sync_pull', { p_code: code, p_since: cursor });
+      const rows = await rpc(as.pull, { ...as.auth, p_since: cursor });
       all = all.concat(rows);
       if (rows.length < PAGE || ++pages > 50) break;
       cursor = rows.reduce((max, r) => Math.max(max, Number(r.rev)), cursor);

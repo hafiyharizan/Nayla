@@ -14,7 +14,7 @@
 	# The app calls /rest/v1/rpc/<fn>, which is the path Supabase's gateway
 	# uses. Stripping the prefix here means the client is byte-identical
 	# whether it points at Supabase or at this box.
-	@sync path /rest/v1/rpc/nayla_sync_push /rest/v1/rpc/nayla_sync_pull
+	@sync path /rest/v1/rpc/nayla_sync_push /rest/v1/rpc/nayla_sync_pull /rest/v1/rpc/nayla_guest_*
 	handle @sync {
 		uri strip_prefix /rest/v1
 		reverse_proxy api:3000

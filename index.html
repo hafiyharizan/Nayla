@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#EFEDE7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1A1917" media="(prefers-color-scheme: dark)">
-<meta name="description" content="Track feeds, diapers, sleep, baths, solids, growth and milestones for your baby.">
+<meta name="description" content="Track feeds, diapers, sleep, baths, medicine, solids, growth and milestones for your baby.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Nayla">
 <title>Nayla — Baby Tracker</title>
@@ -24,6 +24,12 @@
 </header>
 
 <main>
+  <!-- On a babysitter's phone only: whose log this is, and until when. -->
+  <div class="guest-bar" id="guestBar" hidden>
+    <span class="guest-bar-text"><b id="guestBarTitle"></b><span id="guestBarSub"></span></span>
+    <button class="btn btn-small" id="guestLeave">Leave</button>
+  </div>
+
   <!-- ───────────────────────── HOME ───────────────────────── -->
   <section id="view-home" class="view" data-view="home">
     <div class="hero" id="hero">
@@ -78,9 +84,9 @@
         <div class="ring-center">
           <span class="ring-label" id="wakeLabel">Awake for</span>
           <strong class="ring-value" id="wakeValue">—</strong>
-          <span class="ring-sub" id="wakeSub"></span>
         </div>
       </div>
+      <p class="ring-sub" id="wakeSub" aria-live="polite"></p>
       <button class="btn btn-primary btn-sleep" id="sleepToggle">Start sleep</button>
     </div>
 
@@ -229,6 +235,14 @@
       </details>
     </div>
 
+    <h2 class="section-title">Babysitter</h2>
+    <div class="card form">
+      <ul class="guest-list" id="guestList"></ul>
+      <button class="btn btn-primary" id="guestAdd">Give a babysitter access</button>
+      <p class="muted" id="guestHint">They see the log on their own phone for as long as you choose,
+        and lose it the moment you remove them. They never get the pairing code.</p>
+    </div>
+
     <h2 class="section-title">Data</h2>
     <div class="card form">
       <p class="muted" id="dataScope"></p>
@@ -317,6 +331,57 @@
   </div>
 </div>
 
+<!-- ───────────────────────── BABYSITTER ACCESS ───────────────────────── -->
+<div class="sheet-backdrop" id="guestSheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="guestTitle">
+    <div class="sheet-grab"></div>
+    <header class="sheet-head">
+      <h2 id="guestTitle">Babysitter access</h2>
+      <button class="icon-btn" id="guestClose" aria-label="Close">✕</button>
+    </header>
+    <div class="sheet-body">
+      <form class="form" id="guestForm" novalidate>
+        <label class="field">
+          <span>Their name</span>
+          <input type="text" name="label" maxlength="40" autocomplete="off" placeholder="e.g. Kak Ani">
+        </label>
+        <span class="seg-label">For how long</span>
+        <div class="seg" id="guestUntil">
+          <button type="button" data-until="today" class="is-on">Until tonight</button>
+          <button type="button" data-until="day">24 hours</button>
+          <button type="button" data-until="open">Until removed</button>
+        </div>
+        <label class="toggle-field">
+          <span><b>Can log too</b><em>Feeds, diapers, sleep and the rest. They can change only what they logged.</em></span>
+          <input type="checkbox" class="switch" name="canLog" checked>
+        </label>
+        <div class="sheet-actions">
+          <button type="submit" class="btn btn-primary" id="guestCreate">Create link</button>
+        </div>
+      </form>
+      <div id="guestReady" hidden>
+        <p class="install-lead" id="guestReadyLead"></p>
+        <div class="pair-qr" id="guestQr"></div>
+        <button class="btn" id="guestShare">Send the link instead</button>
+        <p class="install-foot">Anyone with this link can see the log until it ends, so send it only to
+          them. Remove access any time from Settings → Babysitter — the log disappears from their
+          phone the next time it connects.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- A babysitter's phone, after the family removed it. -->
+<div class="guest-ended" id="guestEnded" hidden>
+  <div class="guest-ended-card">
+    <div class="guest-ended-icon" aria-hidden="true">👋</div>
+    <h2>Access has ended</h2>
+    <p>The family turned off this phone's access to their baby's log, so it has been removed
+      from this phone. Thanks for looking after her.</p>
+    <button class="btn btn-primary" id="guestEndedOk">OK</button>
+  </div>
+</div>
+
 <!-- ───────────────────────── ADD TO HOME SCREEN ───────────────────────── -->
 <div class="install-banner" id="installBanner" hidden>
   <div class="install-icon">🌙</div>
@@ -368,6 +433,7 @@
 <script src="js/store.js"></script>
 <script src="js/day.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/guest.js"></script>
 <script src="js/photos.js"></script>
 <script src="js/wake.js"></script>
 <script src="js/sheet.js"></script>

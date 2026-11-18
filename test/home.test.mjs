@@ -199,10 +199,51 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   const b = await nextOf(p, 'bath');
   ok('a bath three days ago: bath time', b && b.level !== 'later' && b.title === 'Bath time', JSON.stringify(b));
   await p.click('#homeNext [data-act="log:bath"]');
-  await p.click('.sheet-actions button[type="submit"]');
+  await p.click('#entryForm button[type="submit"]');
   await p.waitForTimeout(150);
   const after = await nextOf(p, 'bath');
   ok('logging a bath moves the next one on', after?.level === 'later' && /^Next bath/.test(after.title), JSON.stringify(after));
+  await ctx.close();
+}
+{
+  // Panadol twice today, the last 2h ago: the next dose is 4h after it.
+  const at = new Date(); at.setHours(16, 0, 0, 0);
+  const t = at.getTime();
+  const { ctx, p } = await phone('medicine', { time: t, records: [
+    { type: 'med', at: t - 2 * H, data: { name: 'Panadol', dose: '2.5 ml', temp: 38.4 } },
+    { type: 'med', at: t - 8 * H, data: { name: 'Calpol', dose: '2.5 ml' } },
+  ] });
+  let m = await nextOf(p, 'med:paracetamol');
+  ok('medicine: when the next dose is allowed', m?.level === 'later' && /^Panadol: next dose after/.test(m.title), JSON.stringify(m));
+  ok('…counting Calpol as the same medicine', /2 of 4 in 24h/.test(m?.text || ''), m?.text);
+  ok('…never as something to do now', !(await nextItems(p)).some(i => i.key.startsWith('med') && i.level !== 'later'));
+  await p.clock.fastForward('02:30:00');
+  await p.evaluate(() => Home.render());
+  m = await nextOf(p, 'med:paracetamol');
+  ok('…and later that it may be given again', /can be given again if needed/.test(m?.title || ''), JSON.stringify(m));
+  await p.click('#homeNext [data-act="log:med"]');
+  ok('"Log a dose" opens the medicine sheet', /dose|medicine/i.test(await p.textContent('#sheetTitle')));
+  ok('…suggesting what was given before', (await p.textContent('#entryForm')).includes('Panadol'));
+  await p.fill('#entryForm [name="name"]', 'panadol');
+  await p.fill('#entryForm [name="temp"]', '45');
+  await p.click('#entryForm button[type="submit"]');
+  ok('an impossible temperature is refused', /temperature looks off/.test(await p.textContent('#toast')));
+  await p.fill('#entryForm [name="temp"]', '38.1');
+  await p.click('#entryForm button[type="submit"]');
+  await p.waitForTimeout(150);
+  const saved = await p.evaluate(() => Store.byType('med')[0].data);
+  ok('a dose is saved with a tidy name', saved.name === 'Panadol' && saved.temp === 38.1, JSON.stringify(saved));
+  await ctx.close();
+}
+{
+  // Four doses in 24h: no more until the oldest of them is a day old.
+  const at = new Date(); at.setHours(20, 0, 0, 0);
+  const t = at.getTime();
+  const { ctx, p } = await phone('medicine-max', { time: t, records: [5, 10, 15, 20].map(h =>
+    ({ type: 'med', at: t - h * H, data: { name: 'Panadol' } })) });
+  const m = await nextOf(p, 'med:paracetamol');
+  ok('four doses in a day: no more until a day after the oldest',
+    /^No more Panadol until/.test(m?.title || '') && m.title.includes(await p.evaluate(ts => Fmt.clock(ts), t + 4 * H)), JSON.stringify(m));
   await ctx.close();
 }
 {
@@ -227,7 +268,7 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   await p.click('.tab[data-tab="now"]');
   await p.click('[data-log="solids"]');
   await p.fill('[data-tag-input]', 'egg');
-  await p.click('.sheet-actions button[type="submit"]');
+  await p.click('#entryForm button[type="submit"]');
   await p.click('.tab[data-tab="home"]');
   ok('a first allergen puts a watch on Home', await hasAlert(p, /Watching for a reaction/));
   ok('with a time to watch until', /until about/.test(await p.textContent('#homeAlerts')));
@@ -455,7 +496,7 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   });
   await p.setInputFiles('[data-photo-input]', { name: 's.png', mimeType: 'image/png', buffer: Buffer.from(b64, 'base64') });
   await p.waitForSelector('.photo-preview:not([hidden])');
-  await p.click('.sheet-actions button[type="submit"]');
+  await p.click('#entryForm button[type="submit"]');
   await p.click('.tab[data-tab="home"]');
   await p.waitForSelector('.hero.has-photo', { timeout: 3000 }).catch(() => {});
   ok('the newest milestone photo stands in', await p.locator('.hero').evaluate(h => h.classList.contains('has-photo')));

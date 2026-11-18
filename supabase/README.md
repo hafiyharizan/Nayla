@@ -35,7 +35,8 @@ watch it appear on the other within a minute (or tap **Sync now**).
 ### Setting up a different project from scratch
 
 1. Create a project (the free tier is ample — the log is kilobytes).
-2. Run `migrations/0001_records.sql`, `0003_photos.sql` and `0004_encrypted_photos.sql`
+2. Run `migrations/0001_records.sql`, `0003_photos.sql`, `0004_encrypted_photos.sql`
+   and `0005_guests.sql` (babysitter access)
    in the SQL editor (`0002_quick_log.sql` too, if you use the Siri Shortcuts), or
    `supabase db push` if you use the CLI.
 3. In the app: **Settings → Sync**, and fill in
@@ -117,3 +118,12 @@ unique ids, and two people essentially never edit the same entry, so a CRDT
 would be a lot of machinery for a case that doesn't arise. The worst outcome is
 one edit of one record losing to a later edit of that same record — never a lost
 log. Unpushed local edits are never overwritten by an incoming row.
+
+## Babysitter access
+
+`0005_guests.sql` adds a `guests` table and six functions (`nayla_guest_*`). A
+guest token reads one household's records, adds rows tagged with the guest's
+name if allowed, changes only its own rows (bar ending a sleep that was running),
+and stops working the moment it is revoked or expires — checked on every call.
+It is safe to re-run, and safe to apply to a database already in use. Until it is
+applied, the app says so when you try to add a babysitter; nothing else changes.

@@ -30,6 +30,9 @@ const Features = (() => {
 
   const DIAPER_KIND = { wet: 'Wet', dirty: 'Dirty', both: 'Wet + dirty' };
 
+  /** "3h 12m", or "just now" in the first minute. */
+  const since = at => Date.now() - at < Fmt.MIN ? 'just now' : Fmt.duration(Date.now() - at);
+
   const feed = {
     label: 'Feed',
     noun: 'feed',
@@ -78,8 +81,10 @@ const Features = (() => {
     },
 
     /* The Now screen's status card for the most recent one. */
-    statusLabel: 'Last feed',
-    statusValue(record) { return Fmt.ago(record.at); },
+    /* "Since feed 3h 12m": the number alone fits a third of a small phone,
+     * where "3h 12m ago" wraps. */
+    statusLabel: 'Since feed',
+    statusValue(record) { return since(record.at); },
     status(record, settings) {
       return [FEED_METHOD[record.data.method], Fmt.amount(record.data.amount, settings.units)]
         .filter(Boolean).join(' · ');
@@ -127,8 +132,8 @@ const Features = (() => {
       return { title: DIAPER_KIND[record.data.kind] || 'Diaper', detail: 'Diaper change' };
     },
 
-    statusLabel: 'Last diaper',
-    statusValue(record) { return Fmt.ago(record.at); },
+    statusLabel: 'Since diaper',
+    statusValue(record) { return since(record.at); },
     status(record) {
       return DIAPER_KIND[record.data.kind] || '';
     },
@@ -181,7 +186,8 @@ const Features = (() => {
         title: live ? 'Sleeping' : 'Sleep',
         detail: live
           ? `since ${Fmt.clock(record.at)}`
-          : `${Fmt.clock(record.at)} – ${Fmt.clock(record.end)} · ${Fmt.duration(record.end - record.at)}`,
+          // The start time is already beside it in every list.
+          : `${Fmt.duration(record.end - record.at)} · woke ${Fmt.clock(record.end).replace(/\s/g, '\u00a0')}`,
       };
     },
 
@@ -240,6 +246,98 @@ const Features = (() => {
 
     tally(record, totals) {
       totals.baths = (totals.baths || 0) + 1;
+    },
+
+    /* History's line for the day; no Today tile, so the Now grid stays 2×2. */
+    daySummary(totals) {
+      const n = totals.baths || 0;
+      return n ? `${n} bath${n === 1 ? '' : 's'}` : '';
+    },
+  };
+
+  /* ── medicine ───────────────────────────────────────────── */
+
+  /* The two everyday ones for babies, under the names people actually say,
+   * with the usual label limits — the least time between doses and the most
+   * doses in 24 hours. Home uses these to say when the next dose is allowed.
+   * Anything else is logged and shown as "last given", with no rule. */
+  const MEDICINES = [
+    { key: 'paracetamol', label: 'Paracetamol', minGapH: 4, maxPerDay: 4,
+      re: /paracetamol|panadol|calpol|acetaminophen|tylenol|uphamol|pcm\b/ },
+    { key: 'ibuprofen', label: 'Ibuprofen', minGapH: 6, maxPerDay: 3,
+      re: /ibuprofen|nurofen|brufen|advil|motrin/ },
+  ];
+
+  const Meds = {
+    MEDICINES,
+    /** "  panadol " -> "Panadol": one medicine, however it was typed. */
+    name(raw) {
+      const t = String(raw || '').trim().replace(/\s+/g, ' ');
+      return t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+    },
+    /** Which known medicine a name is, or null. */
+    rule(name) { return MEDICINES.find(m => m.re.test(String(name).toLowerCase())) || null; },
+    /** Same medicine? Panadol and Calpol are both paracetamol. */
+    same(a, b) {
+      const ra = Meds.rule(a), rb = Meds.rule(b);
+      return ra || rb ? ra === rb : a.toLowerCase() === b.toLowerCase();
+    },
+  };
+
+  const med = {
+    label: 'Medicine',
+    noun: 'dose',
+    icon: '💊',
+    quick: true,
+    fields: [
+      { name: 'name', input: 'text', label: 'Medicine', placeholder: 'e.g. Panadol',
+        suggest: () => {
+          const used = [...new Set(Store.byType('med').map(r => r.data.name).filter(Boolean))];
+          return [...used, ...['Panadol', 'Nurofen'].filter(n => !used.some(u => Meds.same(u, n)))].slice(0, 6);
+        } },
+      { name: 'dose', input: 'text', label: 'Dose', placeholder: 'e.g. 2.5 ml', half: true },
+      { name: 'temp', input: 'number', label: 'Temp (°C)', half: true },
+      { input: 'hint', text: 'Temperature is optional — handy to show the doctor later.' },
+      { name: 'at', input: 'datetime', label: 'Given at' },
+      { name: 'note', input: 'textarea', label: 'Note (optional)', placeholder: 'e.g. fever after jab' },
+    ],
+
+    toValues(record) {
+      return {
+        name: record?.data.name ?? '',
+        dose: record?.data.dose ?? '',
+        temp: record?.data.temp ?? '',
+        at: record?.at ?? Date.now(),
+        note: record?.note ?? '',
+      };
+    },
+
+    fromValues(v) {
+      const name = Meds.name(v.name);
+      if (!name) return { error: 'Which medicine? "Panadol", say.' };
+      const data = { name };
+      const dose = String(v.dose || '').trim();
+      if (dose) data.dose = dose.slice(0, 40);
+      const temp = Number(v.temp);
+      if (v.temp !== '' && v.temp != null) {
+        if (!Number.isFinite(temp) || temp < 34 || temp > 43) return { error: 'That temperature looks off — is it in °C?' };
+        data.temp = Math.round(temp * 10) / 10;
+      }
+      return { at: v.at, end: null, note: v.note, data };
+    },
+
+    describe(record) {
+      const bits = [record.data.dose, record.data.temp != null ? `${record.data.temp}°C` : ''];
+      return { title: record.data.name || 'Medicine', detail: bits.filter(Boolean).join(' · ') };
+    },
+
+    tally(record, totals) {
+      totals.meds = (totals.meds || 0) + 1;
+    },
+
+    daySummary(totals) {
+      const n = totals.meds || 0;
+      return n ? `${n} dose${n === 1 ? '' : 's'}` : '';
     },
   };
 
@@ -507,10 +605,10 @@ const Features = (() => {
     },
   };
 
-  const registry = { feed, diaper, sleep, bath, solids, growth, milestone };
+  const registry = { feed, diaper, sleep, bath, med, solids, growth, milestone };
 
   /** The order features appear in quick-log buttons, filters and summaries. */
-  const ORDER = ['feed', 'diaper', 'sleep', 'bath', 'solids', 'growth', 'milestone'];
+  const ORDER = ['feed', 'diaper', 'sleep', 'bath', 'med', 'solids', 'growth', 'milestone'];
 
   return {
     get(type) { return registry[type] || null; },
@@ -523,6 +621,6 @@ const Features = (() => {
       const f = registry[type]?.fields;
       return typeof f === 'function' ? f(settings) : f || [];
     },
-    FEED_METHOD, DIAPER_KIND, Foods, MILESTONE_IDEAS,
+    FEED_METHOD, DIAPER_KIND, Foods, Meds, MILESTONE_IDEAS,
   };
 })();

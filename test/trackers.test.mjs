@@ -128,10 +128,10 @@ async function pngBuffer(p, color) {
 /* ── 1. trackers on and off ───────────────────────────────── */
 {
   const { ctx, p } = await phone('toggles');
-  ok('all seven trackers are on by default',
+  ok('all eight trackers are on by default',
     (await p.evaluate(() => Features.types().every(t => Store.trackerOn(t)))));
-  ok('five quick-log tiles (feed, diaper, sleep, bath, solids)',
-    (await p.locator('#quickGrid .quick').count()) === 5);
+  ok('six quick-log tiles (feed, diaper, sleep, bath, medicine, solids)',
+    (await p.locator('#quickGrid .quick').count()) === 6);
   ok('Growing tab shows', await visible(p, '.tab[data-tab="growing"]'));
 
   // Log a meal, then hide solids: the entry stays, but the tracker goes.
@@ -168,6 +168,7 @@ async function pngBuffer(p, color) {
   // Can't switch everything off.
   await p.locator('[data-tracker="feed"]').uncheck();
   await p.locator('[data-tracker="bath"]').uncheck();
+  await p.locator('[data-tracker="med"]').uncheck();
   await p.locator('[data-tracker="diaper"]').click();   // refused, so not uncheck()
   ok('the last tracker refuses to turn off',
     await p.locator('[data-tracker="diaper"]').isChecked() &&
@@ -184,7 +185,7 @@ async function pngBuffer(p, color) {
 {
   const { ctx, p } = await phone('solids');
   await p.click('[data-log="solids"]');
-  await p.click('#sheetFields button[type="submit"], .sheet-actions button[type="submit"]');
+  await p.click('#sheetFields button[type="submit"], #entryForm button[type="submit"]');
   ok('a meal needs a food', /at least one food/.test(await toastText(p)));
 
   await p.fill('[data-tag-input]', 'Sweet  Potato');
@@ -195,7 +196,7 @@ async function pngBuffer(p, color) {
   await p.click('[data-seg="amount"][data-value="most"]');
   await p.click('[data-seg="reaction"][data-value="loved"]');
   await p.click('[data-seg="reaction"][data-value="loved"]');   // tap again to clear
-  await p.click('.sheet-actions button[type="submit"]');
+  await p.click('#entryForm button[type="submit"]');
   const first = await p.evaluate(() => Store.byType('solids')[0]);
   ok('meal saved with a normalised food', JSON.stringify(first.data.foods) === '["sweet potato"]');
   ok('optional choice cleared by a second tap', first.data.amount === 'most' && first.data.reaction == null);
@@ -206,7 +207,7 @@ async function pngBuffer(p, color) {
   ok('known foods offered as chips', (await p.locator('.tag[data-tag="sweet potato"]').count()) === 1);
   await p.click('.tag[data-tag="sweet potato"]');
   await p.fill('[data-tag-input]', 'egg yolk');            // typed but not "Add"ed still counts
-  await p.click('.sheet-actions button[type="submit"]');
+  await p.click('#entryForm button[type="submit"]');
   ok('a first allergen gets a heads-up', /First time with egg/.test(await toastText(p)), await toastText(p));
   const second = await p.evaluate(() => {
     const r = Store.byType('solids').find(x => x.data.foods.length === 2);
@@ -232,12 +233,12 @@ async function pngBuffer(p, color) {
   await p.click('[data-log="growth"]');
   await p.fill('input[name="weight"]', '65');
   await p.fill('input[name="at"]', '2026-10-01');
-  await p.click('.sheet-actions button[type="submit"]');
+  await p.click('#entryForm button[type="submit"]');
   ok('an implausible weight is refused', /looks off/.test(await toastText(p)));
 
   await p.fill('input[name="weight"]', '6.4');
   await p.fill('input[name="length"]', '62');
-  await p.click('.sheet-actions button[type="submit"]');
+  await p.click('#entryForm button[type="submit"]');
   const g = await p.evaluate(() => Store.byType('growth')[0]);
   ok('measurement saved in kg / cm', g.data.weight === 6.4 && g.data.length === 62 && g.data.head == null);
   ok('date-only entry stored at local noon', await p.evaluate(at => new Date(at).getHours() === 12, g.at));
@@ -262,7 +263,7 @@ async function pngBuffer(p, color) {
   await p.click('[data-log="growth"]');
   ok('weight label switches to lb', (await p.locator('#sheetFields').textContent()).includes('Weight (lb)'));
   await p.fill('input[name="weight"]', '15');
-  await p.click('.sheet-actions button[type="submit"]');
+  await p.click('#entryForm button[type="submit"]');
   const lb = await p.evaluate(() => Store.byType('growth')[0].data.weight);
   ok('pounds converted to kg', Math.abs(lb - 6.804) < 0.001, String(lb));
   ok('shown back as lb and oz',
@@ -291,14 +292,14 @@ async function pngBuffer(p, color) {
   await mum.p.click('[data-log="milestone"]').catch(async () => { await tab(mum.p, 'growing'); await mum.p.click('[data-log="milestone"]'); });
   ok('unpaired: sharing switch off and explains why',
     await shareSwitch(mum.p).isDisabled() &&
-    (await mum.p.locator('.toggle-field').textContent()).includes('Pair a phone first'));
+    (await mum.p.locator('#entryForm .toggle-field').textContent()).includes('Pair a phone first'));
   await mum.p.click('#sheetClose');
 
   await tab(dad.p, 'growing');
   await dad.p.click('[data-log="milestone"]');
   ok('paired before this update: one-time rescan explained',
     await shareSwitch(dad.p).isDisabled() &&
-    (await dad.p.locator('.toggle-field').textContent()).includes('One-time step'));
+    (await dad.p.locator('#entryForm .toggle-field').textContent()).includes('One-time step'));
   await dad.p.click('#sheetClose');
 
   // Showing the pairing code makes the photo key; scanning it hands it over.
@@ -325,7 +326,7 @@ async function pngBuffer(p, color) {
   await dad.p.setInputFiles('[data-photo-input]', { name: 'laugh.png', mimeType: 'image/png', buffer: await pngBuffer(dad.p, '#e07a5f') });
   await dad.p.waitForSelector('.photo-preview:not([hidden])');
   ok('sharing is off by default', !(await shareSwitch(dad.p).isChecked()) && !(await shareSwitch(dad.p).isDisabled()));
-  await dad.p.click('.sheet-actions button[type="submit"]');
+  await dad.p.click('#entryForm button[type="submit"]');
   await settle(dad.p);
 
   const m = await dad.p.evaluate(() => Store.byType('milestone')[0]);
@@ -342,7 +343,7 @@ async function pngBuffer(p, color) {
   // Share it.
   await dad.p.click('.m-card');
   await shareSwitch(dad.p).check();
-  await dad.p.click('.sheet-actions button[type="submit"]');
+  await dad.p.click('#entryForm button[type="submit"]');
   await settle(dad.p);
   const payload = onServer(m.data.photo) || '';
   ok('shared photo uploaded encrypted', payload.startsWith('enc1:'));
@@ -365,7 +366,7 @@ async function pngBuffer(p, color) {
   // Unshare: off the server, and gone from mum's phone.
   await dad.p.click('.m-card');
   await shareSwitch(dad.p).uncheck();
-  await dad.p.click('.sheet-actions button[type="submit"]');
+  await dad.p.click('#entryForm button[type="submit"]');
   await settle(dad.p);
   ok('unsharing takes it off the server', !onServer(m.data.photo));
   await settle(mum.p);
@@ -379,7 +380,7 @@ async function pngBuffer(p, color) {
   // Share again, then a new pairing code: the photo moves with the log.
   await dad.p.click('.m-card');
   await shareSwitch(dad.p).check();
-  await dad.p.click('.sheet-actions button[type="submit"]');
+  await dad.p.click('#entryForm button[type="submit"]');
   await settle(dad.p);
   const newCode = 'e'.repeat(32);
   await dad.p.evaluate(c => Store.saveSettings({ syncCode: c }), newCode);
@@ -402,7 +403,7 @@ async function pngBuffer(p, color) {
   await dad.p.setInputFiles('[data-photo-input]', { name: 'sit.png', mimeType: 'image/png', buffer: await pngBuffer(dad.p, '#3d405b') });
   await dad.p.waitForSelector('.photo-preview:not([hidden])');
   await shareSwitch(dad.p).check();
-  await dad.p.click('.sheet-actions button[type="submit"]');
+  await dad.p.click('#entryForm button[type="submit"]');
   await settle(dad.p);
   const second = await dad.p.evaluate(() => Store.byType('milestone')[0].data.photo);
   ok('second shared photo is up', Boolean(onServer(second)));
@@ -425,7 +426,7 @@ async function pngBuffer(p, color) {
   await solo.p.setInputFiles('[data-photo-input]', { name: 'sit.png', mimeType: 'image/png', buffer: await pngBuffer(solo.p, '#81b29a') });
   await solo.p.waitForSelector('.photo-preview:not([hidden])');
   await solo.p.locator('input[name="sharePhoto"]').check();
-  await solo.p.click('.sheet-actions button[type="submit"]');
+  await solo.p.click('#entryForm button[type="submit"]');
   await solo.p.evaluate(async () => { await Sync.run(); await Photos.sync(); });
   await solo.p.waitForTimeout(500);
   ok('milestone still syncs', [...rows.values()].some(r => r.household === code && r.type === 'milestone'));

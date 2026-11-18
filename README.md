@@ -75,7 +75,7 @@ the tab you were using.
   wake window. It turns blue while she's asleep and red once she's past the window.
 - Time since the last feed, last diaper, and the length of the last sleep. Tap any
   of them to edit that entry.
-- One-tap logging for a feed, diaper, sleep, bath, or a solid meal.
+- One-tap logging for a feed, diaper, sleep, bath, a dose of medicine, or a solid meal.
 - Today's running totals and the most recent entries.
 
 **Growing** — the slow-moving things, looked back on over months.
@@ -121,7 +121,7 @@ has it — or on a day the sun never gets that low — the day starts at the set
 
 ### Turning trackers on and off
 
-**Settings → Trackers** has a switch for each of the six. Turning one off hides it
+**Settings → Trackers** has a switch for each of the eight. Turning one off hides it
 everywhere on that phone — its button, its Today total, its History filter, its
 section of Growing — but deletes nothing: the entries stay, keep syncing, and come
 back the moment it's turned on again. Turning sleep off also hides the wake-window
@@ -229,6 +229,40 @@ How it behaves:
   12 hours is the backstop for anything wider.
 - Deletes travel as tombstones, so removing an entry on one phone removes it on both.
 
+## Medicine
+
+**Medicine** logs a dose: the medicine, the dose ("2.5 ml"), optionally her temperature,
+and when. On Home, Next up then says when another dose would be within the usual
+label limits — for paracetamol (Panadol, Calpol, Uphamol) at least 4 hours apart and no
+more than 4 doses in 24 hours, for ibuprofen (Nurofen, Brufen) 6 hours and 3 doses —
+counting Panadol and Calpol as the same medicine. It never tells you to give a dose,
+only when one would be allowed; anything else is shown as "given 3h ago". The label
+and your doctor come first.
+
+## Babysitter access
+
+**Settings → Babysitter → Give a babysitter access** makes a link for someone looking
+after her for a while: their name, how long (until tonight, 24 hours, or until you
+remove it) and whether they can log too. They scan the QR or open the link, and their
+phone shows her log — Home, Now, Growing and History, with a strip across the top
+saying whose log it is and until when, and no Settings.
+
+- They never get the pairing code. The link carries a token of its own, so removing
+  them never means re-pairing your phones.
+- If they can log, their entries show up on your phones marked **by Kak Ani**. They can
+  change only what they logged — and end a sleep that was running when you handed her
+  over — but never your entries. The server enforces this, not the app.
+- While someone has access, Home reminds you, with a **Remove access** button.
+  Removing them (or the time running out) is checked by the server on every sync; the
+  next time their phone connects, it wipes the log and says access has ended. A phone
+  that was offline also wipes itself once the end time passes.
+- What they've already seen can't be un-seen — a screenshot is a screenshot — so
+  this is about not leaving access open, not about secrecy.
+- The link refuses to open on a phone that already has a log in this app (a family
+  phone, or a babysitter tracking her own baby), so two families' entries never mix.
+
+This needs `supabase/migrations/0005_guests.sql` applied on the server.
+
 ## Your data
 
 With sync off, everything lives in `localStorage` in the browser you use it in, and
@@ -279,16 +313,18 @@ js/features.js        the feature registry — what a feed, a meal or a mileston
 js/store.js           records + settings, persisted to localStorage
 js/day.js             when her day starts (midnight/time/sunrise/Subuh), adding a day up
 js/sync.js            push/pull/merge against the backend
+js/guest.js           babysitter access: guest links, and the guest's view
 js/photos.js          milestone photos: kept on the phone; shared ones encrypted
 js/qr.js              a small QR encoder, for the pairing code
 js/pair.js            pairing by scan or link
 js/wake.js            wake-window ranges and current awake/asleep state
 js/sheet.js           the add/edit sheet, rendered from a feature's fields
 js/growing.js         the Growing tab: growth chart, milestones, foods tried
+js/next.js            Next up: when to feed, sleep, wake, change, bathe; next dose
 js/home.js            the Home tab: header photo, alerts, Today, the 7-day charts
 js/app.js             views, live timers, stats, import/export
 sw.js                 offline caching
-supabase/             the sync backend: a records table, a photos table
+supabase/             the sync backend: records, photos and guests
 deploy/               that same backend on a VPS, behind Caddy
 test/                 browser tests (npm test)
 ```
