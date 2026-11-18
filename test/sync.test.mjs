@@ -82,7 +82,7 @@ async function newPhone(label) {
     }
   });
   await page.goto('http://localhost:4173/index.html');
-  await page.click('.tab[data-tab="now"]');   // the app opens on Home
+  await page.click('.tab[data-tab="log"]');   // the app opens on Home
   return { ctx, page };
 }
 
@@ -125,7 +125,9 @@ async function newPhone(label) {
   await page.waitForTimeout(200);
 
   ok('quick buttons built from registry', (await page.locator('#quickGrid .quick').count()) === 6);   // feed, diaper, sleep, bath, medicine, solids
-  ok('status cards built from registry', (await page.locator('#statusRow .stat').count()) === 3);
+  await page.click('.tab[data-tab="home"]');
+  ok('Home\'s since-last row built from registry', (await page.locator('#homeSince .since').count()) === 3);
+  await page.click('.tab[data-tab="log"]');
   ok('filters built from registry', (await page.locator('#historyFilters .chip').count()) === 9);   // All + eight trackers
   // Her age in whatever unit suits it now — asserting "weeks" dated badly
   // the moment she turned four months old.

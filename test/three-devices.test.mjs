@@ -56,7 +56,7 @@ async function phone(label) {
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push(`${label}: ${e.message}`));
   await p.goto('http://localhost:4194/index.html');
-  await p.click('.tab[data-tab="now"]');   // the app opens on Home
+  await p.click('.tab[data-tab="log"]');   // the app opens on Home
   await p.evaluate(() => localStorage.clear());
   await p.reload(); await p.waitForTimeout(250);
   return { ctx, p, label };
@@ -76,7 +76,7 @@ await dad.p.click('#pairBtn'); await dad.p.waitForTimeout(300);
 const code = await dad.p.evaluate(() => Store.settings().syncCode);
 const link = await dad.p.evaluate(() => Pair.link(Store.settings().syncCode));
 await dad.p.click('#pairClose');
-await dad.p.click('[data-tab="now"]'); await dad.p.waitForTimeout(200);
+await dad.p.click('[data-tab="log"]'); await dad.p.waitForTimeout(200);
 await log(dad, 'feed');
 await sync(dad);
 

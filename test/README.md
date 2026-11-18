@@ -9,7 +9,7 @@ npm test
 the two sync functions, then drives real Chromium pages against it. It covers:
 
 - migrating the v1 storage format to v2 records without losing entries
-- the Now / History / Stats / Settings views building themselves from the
+- the Home / Log / History / Settings views building themselves from the
   feature registry
 - logging, editing, and the sleep start/stop round trip
 - two "phones" sharing a log: propagation of adds, edits and deletes

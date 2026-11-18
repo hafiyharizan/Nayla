@@ -84,7 +84,7 @@ await dad.p.click('#pairClose'); await dad.p.waitForTimeout(200);
 ok('sheet closes', !(await dad.p.isVisible('#pairSheet')));
 
 // log something to sync over
-await dad.p.click('[data-tab="now"]'); await dad.p.waitForTimeout(200);
+await dad.p.click('[data-tab="log"]'); await dad.p.waitForTimeout(200);
 await dad.p.click('[data-log="feed"]');
 await dad.p.fill('input[name="amount"]', '120');
 await dad.p.click('#entryForm button[type="submit"]');
@@ -113,7 +113,7 @@ ok('fields show what sync actually uses (not blank)',
    (await mum.p.inputValue('#setSyncCode')) === code);
 
 // ── it keeps working both ways, on its own ──
-await mum.p.click('[data-tab="now"]'); await mum.p.waitForTimeout(200);
+await mum.p.click('[data-tab="log"]'); await mum.p.waitForTimeout(200);
 await mum.p.click('[data-log="diaper"]');
 await mum.p.click('#entryForm button[type="submit"]');
 await mum.p.waitForTimeout(200);

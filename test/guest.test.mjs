@@ -167,7 +167,7 @@ ok('a strip says whose log it is', /Nayla's log, shared with Kak Ani/.test(await
 ok('no Settings tab for a guest', !(await ani.p.isVisible('.tab[data-tab="settings"]')));
 
 // She logs a diaper of her own.
-await tab(ani, 'now');
+await tab(ani, 'log');
 await ani.p.click('[data-log="diaper"]');
 await ani.p.click('#entryForm button[type="submit"]');
 await ani.p.waitForTimeout(150);
@@ -192,19 +192,19 @@ ok('…and the server refuses it anyway',
   (await mum.p.evaluate(id => Store.get(id).note, feedId)) === '');
 
 // She can end the sleep that was running when she arrived.
-await tab(ani, 'now');
+await tab(ani, 'log');
 await ani.p.click('#sleepToggle');
 await sync(ani); await sync(mum);
 ok('ending the family\'s running sleep reaches them', await mum.p.evaluate(() => !Store.activeSleep()));
 
 /* ── the family removes her ── */
-await tab(mum, 'home');
-ok('Home reminds the family she still has access',
-  (await mum.p.textContent('#homeAlerts')).includes('Kak Ani can see Nayla\'s log'));
-await mum.p.click('#homeAlerts [data-act^="unguest:"]');
+await tab(mum, 'log');
+ok('Log reminds the family she still has access',
+  (await mum.p.textContent('#logAlerts')).includes('Kak Ani can see Nayla\'s log'));
+await mum.p.click('#logAlerts [data-act^="unguest:"]');
 await mum.p.waitForTimeout(400);
 ok('"Remove access" ends it', (await mum.p.evaluate(() => Guest.cached().length)) === 0 &&
-  !(await mum.p.textContent('#homeAlerts')).includes('Kak Ani'));
+  !(await mum.p.textContent('#logAlerts')).includes('Kak Ani'));
 
 await ani.p.evaluate(() => Sync.run());
 await ani.p.waitForLoadState('load'); await ani.p.waitForTimeout(800);
@@ -219,7 +219,7 @@ await mum.p.evaluate(() => Guest.create({ label: 'Grandma', canLog: false, until
 const gLink = await mum.p.evaluate(() => Guest.link(Guest.cached().find(g => g.label === 'Grandma').token));
 const gran = await phone('gran');
 await gran.p.goto(gLink); await gran.p.waitForTimeout(1200);
-await tab(gran, 'now');
+await tab(gran, 'log');
 ok('view-only: nothing to log with', !(await gran.p.isVisible('#quickGrid')) && !(await gran.p.isVisible('#sleepToggle')));
 ok('view-only: the strip says so', /view only/.test(await gran.p.textContent('#guestBar')));
 

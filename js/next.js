@@ -292,7 +292,7 @@ const Next = (() => {
 
   function render() {
     const list = items();
-    const box = document.getElementById('homeNext');
+    const box = document.getElementById('logNext');
     document.getElementById('nextHead').hidden = !list.length;
     box.hidden = !list.length;
     box.innerHTML = list.map((it, i) => `

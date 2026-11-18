@@ -72,16 +72,22 @@ async function phone(label, { settings = {}, records = [], time = null, context 
   return { ctx, p };
 }
 
-const alertTitles = p => p.$$eval('#homeAlerts .alert b', els => els.map(e => e.textContent));
+/** Right now and Next up live on Log; open it before reading them. */
+const onLog = async p => { if (!(await p.isVisible('#view-log'))) await p.click('.tab[data-tab="log"]'); };
+const alertTitles = async p => { await onLog(p); return p.$$eval('#logAlerts .alert b', els => els.map(e => e.textContent)); };
 const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
 
 /* ── 1. where it opens ─────────────────────────────────────── */
 {
   const { ctx, p } = await phone('opens');
-  ok('opens on Home', await p.isVisible('#view-home') && !(await p.isVisible('#view-now')));
-  ok('five tabs, Stats folded into Home',
-    (await p.$$eval('.tab:not([hidden])', t => t.map(x => x.dataset.tab).join())) === 'home,now,growing,history,settings');
-  ok('7-day charts live on Home', await p.isVisible('#view-home #statsBody'));
+  ok('opens on Home', await p.isVisible('#view-home') && !(await p.isVisible('#view-log')));
+  ok('five tabs, Now renamed Log',
+    (await p.$$eval('.tab:not([hidden])', t => t.map(x => x.dataset.tab).join())) === 'home,log,growing,history,settings'
+    && (await p.textContent('.tab[data-tab="log"] .tab-label')) === 'Log');
+  ok('Home is an overview: nothing to log from',
+    (await p.locator('#view-home [data-act], #view-home [data-log], #view-home .alerts, #view-home .next-list').count()) === 0);
+  ok('…and Log holds Right now and Next up', (await p.locator('#view-log #logAlerts, #view-log #logNext').count()) === 2);
+  ok('the 7-day charts wait for a tile to be tapped', !(await p.isVisible('#view-home #statsBody')));
   ok('the name is in the photo, so the plain header steps aside', !(await p.isVisible('.topbar')));
   ok('…and comes back on other tabs', await (async () => { await p.click('.tab[data-tab="history"]'); return p.isVisible('.topbar'); })());
 
@@ -90,6 +96,10 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   const fresh = await ctx.newPage();
   await fresh.goto(`http://localhost:${PORT}/index.html`); await fresh.waitForTimeout(300);
   ok('opening the app afresh starts at Home', await fresh.isVisible('#view-home'));
+  // A phone mid-session when this update lands had the tab saved as "now".
+  await fresh.evaluate(() => sessionStorage.setItem('nayla.view', 'now'));
+  await fresh.reload(); await fresh.waitForTimeout(300);
+  ok('a tab saved as Now reopens as Log', await fresh.isVisible('#view-log'));
   await ctx.close();
 
   // No birthday, nothing logged, nothing due: a calm line, not an empty box.
@@ -99,7 +109,7 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
 }
 
 /* ── 2. next up ────────────────────────────────────────────── */
-const nextItems = p => p.$$eval('#homeNext .next', els => els.map(e => ({
+const nextItems = async p => (await onLog(p), p).$$eval('#logNext .next', els => els.map(e => ({
   key: e.dataset.next, level: e.className.match(/next-(now|soon|later)/)[1],
   title: e.querySelector('b').textContent, text: e.textContent })));
 const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
@@ -112,11 +122,13 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   const sl = await nextOf(p, 'sleep');
   ok('awake past the window: time for her to sleep', sl?.level === 'now' && /Time for her to sleep/.test(sl.title), JSON.stringify(sl));
   ok('…and it is first in the list', (await nextItems(p))[0]?.key === 'sleep');
+  ok('something due now puts a dot on the Log tab', await p.$eval('.tab[data-tab="log"]', t => t.classList.contains('has-dot')));
   ok('…and not repeated under Right now', !(await hasAlert(p, /^Awake/)));
-  await p.click('#homeNext [data-act="sleep"]');
+  await p.click('#logNext [data-act="sleep"]');
   await p.waitForTimeout(150);
   ok('"Start sleep" starts a sleep', await p.evaluate(() => Boolean(Store.activeSleep())));
   ok('…and she is now asleep', /^(Napping|Asleep)/.test((await nextOf(p, 'sleep'))?.title || ''));
+  ok('…and the dot goes once it is done', !(await p.$eval('.tab[data-tab="log"]', t => t.classList.contains('has-dot'))));
   await ctx.close();
 }
 {
@@ -127,7 +139,7 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   ] });
   const sl = await nextOf(p, 'sleep');
   ok('a long nap: time to wake her', sl?.level === 'now' && sl.title === 'Time to wake her', JSON.stringify(sl));
-  await p.click('#homeNext [data-act="sleep"]');
+  await p.click('#logNext [data-act="sleep"]');
   await p.waitForTimeout(150);
   ok('"She woke up" ends the sleep', await p.evaluate(() => !Store.activeSleep()));
   await ctx.close();
@@ -165,11 +177,11 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   ok('a feed not yet due says when', f?.level === 'later' && /^Next feed around/.test(f.title), JSON.stringify(f));
   // An hour later it is due.
   await p.clock.fastForward('01:00:00');
-  await p.evaluate(() => Home.render());
+  await p.evaluate(() => Next.render());
   f = await nextOf(p, 'feed');
   ok('…and later it is time for a feed', f?.level === 'now' && f.title === 'Time for a feed', JSON.stringify(f));
   ok('…by her age, until she has a rhythm', /Babies her age usually feed about every 3h/.test(f.text));
-  await p.click('#homeNext [data-act="log:feed"]');
+  await p.click('#logNext [data-act="log:feed"]');
   ok('"Log a feed" opens the feed sheet', await p.isVisible('#sheetBackdrop') && /feed/i.test(await p.textContent('#sheetTitle')));
   await ctx.close();
 }
@@ -198,7 +210,7 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   ok('…saying when and what it was', /Last changed 3h 30m ago .*wet/.test(d?.text || ''));
   const b = await nextOf(p, 'bath');
   ok('a bath three days ago: bath time', b && b.level !== 'later' && b.title === 'Bath time', JSON.stringify(b));
-  await p.click('#homeNext [data-act="log:bath"]');
+  await p.click('#logNext [data-act="log:bath"]');
   await p.click('#entryForm button[type="submit"]');
   await p.waitForTimeout(150);
   const after = await nextOf(p, 'bath');
@@ -218,10 +230,10 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   ok('…counting Calpol as the same medicine', /2 of 4 in 24h/.test(m?.text || ''), m?.text);
   ok('…never as something to do now', !(await nextItems(p)).some(i => i.key.startsWith('med') && i.level !== 'later'));
   await p.clock.fastForward('02:30:00');
-  await p.evaluate(() => Home.render());
+  await p.evaluate(() => Next.render());
   m = await nextOf(p, 'med:paracetamol');
   ok('…and later that it may be given again', /can be given again if needed/.test(m?.title || ''), JSON.stringify(m));
-  await p.click('#homeNext [data-act="log:med"]');
+  await p.click('#logNext [data-act="log:med"]');
   ok('"Log a dose" opens the medicine sheet', /dose|medicine/i.test(await p.textContent('#sheetTitle')));
   ok('…suggesting what was given before', (await p.textContent('#entryForm')).includes('Panadol'));
   await p.fill('#entryForm [name="name"]', 'panadol');
@@ -248,7 +260,7 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
 }
 {
   const { ctx, p } = await phone('bath-tile');
-  await p.click('.tab[data-tab="now"]');
+  await p.click('.tab[data-tab="log"]');
   ok('bath has a one-tap tile on Now', await p.isVisible('.quick-bath'));
   await ctx.close();
 }
@@ -265,13 +277,13 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
 }
 {
   const { ctx, p } = await phone('allergen');
-  await p.click('.tab[data-tab="now"]');
+  await p.click('.tab[data-tab="log"]');
   await p.click('[data-log="solids"]');
   await p.fill('[data-tag-input]', 'egg');
   await p.click('#entryForm button[type="submit"]');
   await p.click('.tab[data-tab="home"]');
   ok('a first allergen puts a watch on Home', await hasAlert(p, /Watching for a reaction/));
-  ok('with a time to watch until', /until about/.test(await p.textContent('#homeAlerts')));
+  ok('with a time to watch until', /until about/.test(await p.textContent('#logAlerts')));
   await ctx.close();
 }
 {
@@ -331,36 +343,45 @@ const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
   ok('Today says when her day began', (await text('#summaryMeta')) === `since ${await p.evaluate(() => Fmt.clock(new Date(2026, 9, 31, 6)))}`,
     await text('#summaryMeta'));
   const feeds = await text('.sum-feed');
-  ok('feeds since her day began — not the 2am one', /Feeds 5\b/.test(feeds), feeds);
+  ok('feeds since her day began — not the 2am one', (await text('.sum-feed .sum-value')) === '5', feeds);
   ok('against what she usually has by this time', feeds.includes('Usually 3 by now'));
   ok('…and on a whole day, night feeds included', feeds.includes('Avg 6 a day'));
   ok('more than usual says how many more', (await text('.sum-feed .sum-chip')) === '↑ 2 more');
 
   const sleep = await text('.sum-sleep');
-  ok("last night isn't in today's sleep", /Sleep 2h\b/.test(sleep), sleep);
+  ok("last night isn't in today's sleep", (await text('.sum-sleep .sum-value')) === '2h', sleep);
   ok('a whole day includes its night, unsplit', sleep.includes('Usually 2h 30m by now') && sleep.includes('Avg 11h 30m a day'), sleep);
   ok('less than usual says how much less', (await text('.sum-sleep .sum-chip')) === '↓ 30m less');
   ok('diapers on track', (await text('.sum-diaper .sum-chip')) === 'On track');
   ok('a tracker with no history yet says so',
     (await text('.sum-solids')).includes('Not enough days') && !(await p.isVisible('.sum-solids .sum-chip')));
   ok('a tile per tracker that counts', (await p.locator('.sum-tile').count()) === 4);
-  ok('the meter fills to today against a whole day',
-    Math.abs(parseFloat(await p.$eval('.sum-feed .sum-meter i', i => i.style.width)) - 83.3) < 0.1);
+  ok('each tile draws the last 7 days, today last',
+    (await p.locator('.sum-feed .sum-spark i').count()) === 7 &&
+    Math.abs(parseFloat(await p.$eval('.sum-feed .sum-spark i.is-today', i => i.style.height)) - 83.3) < 0.1);
+  ok('…with her usual day as a line', await p.isVisible('.sum-feed .sum-spark s'));
 
-  // The 7-day charts: one per tracker with something logged.
-  ok('a chart each for sleep, feeds and diapers',
-    (await p.$$eval('#statsBody .stat-block h3', hs => hs.map(h => h.textContent).join())) === 'Sleep per day,Feeds per day,Diapers per day');
-  const feedChart = p.locator('#statsBody .stat-block', { hasText: 'Feeds per day' });
-  ok('the chart reads out her usual day', (await feedChart.locator('.chart-readout').textContent()) === 'Usually 6 a day');
-  ok("today's column carries its value", (await feedChart.locator('.c-cap').textContent()) === '5');
-  ok('seven columns, today last', (await feedChart.locator('.c-day').allTextContents()).at(-1) === 'Today'
-    && (await feedChart.locator('.col').count()) === 7);
+  // The 7-day charts: a tile opens its own, and only one is open at a time.
+  const chartTitles = () => p.$$eval('#statsBody .stat-block h3', hs => hs.map(h => h.textContent).join());
+  await p.click('.sum-sleep');
+  ok('tapping a tile opens its 7-day chart', (await chartTitles()) === 'Sleep per day', await chartTitles());
+  ok('…and marks the tile open', (await p.getAttribute('.sum-sleep', 'aria-expanded')) === 'true');
   const sleepChart = p.locator('#statsBody .stat-block', { hasText: 'Sleep per day' });
   await sleepChart.locator('[data-col="5"]').click();
   ok('yesterday holds its whole night', (await sleepChart.locator('.chart-readout').textContent()) === `${await p.evaluate(() =>
     new Date(2026, 9, 30).toLocaleDateString([], { weekday: 'long' }))} · 11h 30m`, await sleepChart.locator('.chart-readout').textContent());
   await sleepChart.locator('[data-col="5"]').click();
   ok('tapping it again goes back', (await sleepChart.locator('.chart-readout').textContent()) === 'Usually 11h 30m a day');
+  await p.click('.sum-feed');
+  ok('another tile swaps the chart', (await chartTitles()) === 'Feeds per day', await chartTitles());
+  await p.click('.sum-feed');
+  ok('tapping the open tile closes it', !(await p.isVisible('#statsBody')));
+  await p.click('.sum-feed');
+  const feedChart = p.locator('#statsBody .stat-block', { hasText: 'Feeds per day' });
+  ok('the chart reads out her usual day', (await feedChart.locator('.chart-readout').textContent()) === 'Usually 6 a day');
+  ok("today's column carries its value", (await feedChart.locator('.c-cap').textContent()) === '5');
+  ok('seven columns, today last', (await feedChart.locator('.c-day').allTextContents()).at(-1) === 'Today'
+    && (await feedChart.locator('.col').count()) === 7);
 
   // History groups by her day too: the 9pm–3am night sits whole under Yesterday.
   await p.click('.tab[data-tab="history"]');

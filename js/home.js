@@ -1,24 +1,21 @@
-/* Home: the screen the app opens on.
+/* Home: the screen the app opens on — an overview to look at, with nothing
+ * to log from. Everything that is done lives on Log.
  *
- * Five things, top to bottom:
+ * Top to bottom, sized to fit one phone screen without scrolling:
  *   a header photo   picked on this phone and kept on this phone; until one
  *                    is picked, the newest milestone photo this phone has
- *   next up          feed, sleep, diaper and bath: due now, soon, or when
- *                    (next.js)
- *   alerts           what needs attention now, and a few gentle suggestions,
- *                    worked out from the log — never more than five
- *   today            each tracker's total since midnight, against what she
- *                    usually has by this time of day, and on a whole day
- *   the last 7 days  a column per day (what used to be the Stats tab)
- *
- * Alert buttons use data-act rather than the data-log / data-entry buttons
- * used everywhere else, so a hidden Home never shadows the real ones.
+ *   since last       how long she has been awake (or asleep), and since her
+ *                    last feed and diaper
+ *   today            each tracker's total since her day began, against what
+ *                    she usually has by this time of day, with the last 7
+ *                    days drawn small underneath. Tapping a tile opens that
+ *                    tracker's full 7-day chart below the tiles.
+ *   growing          her latest weight, length and head size, with their
+ *                    WHO percentiles
  */
 const Home = (() => {
   const HEADER_ID = 'home-header';
-  const DISMISS_KEY = 'nayla.dismissed.v1';
-  const DAY = 86400000, HOUR = 3600000, MIN = 60000;
-  const MAX_ALERTS = 5;
+  const MIN = 60000;
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c =>
@@ -26,29 +23,10 @@ const Home = (() => {
   }
 
   const on = type => Store.trackerOn(type);
-  const babyName = () => Store.settings().name || 'Baby';
-
-  /* ── dismissing ──────────────────────────────────────────── */
-  /* Per phone, and it only ever hides a message, so browser storage is the
-   * right place — if it's lost, an alert simply shows again. */
-  function dismissed() {
-    try { return JSON.parse(localStorage.getItem(DISMISS_KEY)) || {}; } catch { return {}; }
-  }
-
-  function dismiss(id, until) {
-    const all = dismissed();
-    const now = Date.now();
-    for (const k of Object.keys(all)) if (all[k] < now) delete all[k];   // tidy up
-    all[id] = until;
-    try { localStorage.setItem(DISMISS_KEY, JSON.stringify(all)); } catch { /* fine */ }
-  }
-
-  /** A dismissed alert comes back when her next day starts (see day.js). */
-  const endOfToday = () => Day.next(Day.start(0));
 
   /** Today so far (index 0) and the seven whole days before it, each with
    *  its totals as far into that day as today has got — so 9am is compared
-   *  with other mornings, not with whole days. Days run sunrise to sunrise
+   *  with other mornings, not with whole days. Days run from her day's start
    *  (day.js). Worked out once per render and shared by the Today tiles
    *  and the 7-day charts. */
   function days() {
@@ -88,23 +66,26 @@ const Home = (() => {
     return logged.length >= 2 ? { perDay: mean(logged.map(d => get(d.totals))), logged } : null;
   }
 
-  /** Each tracker since midnight, against what she usually has by this time
-   *  of day — a fair comparison at 9am as well as at 9pm — and against her
-   *  usual whole day. */
+  /** Oldest first: six whole days, then today so far. */
+  const oldestFirst = week => [...week.slice(1, 7)].reverse().concat(week[0]);
+
+  /** Each tracker since her day began, against what she usually has by this
+   *  time of day — a fair comparison at 9am as well as at 9pm — and against
+   *  her usual whole day. */
   function today(week = days()) {
     return Object.entries(METRIC).filter(([type]) => on(type)).map(([type, m]) => {
       const value = m.get(week[0].totals);
       const usual = usualDay(week, m.get);
       const tile = { type, label: m.label, icon: Features.get(type).icon,
-        value, shown: m.show(value), byNow: null, perDay: null, trend: null, delta: '' };
+        value, shown: m.show(value), byNow: null, perDay: null, perDayRaw: null, trend: null, delta: '',
+        spark: oldestFirst(week).map(d => m.get(d.totals)) };
       if (!usual) return tile;
 
       const byNow = mean(usual.logged.map(d => m.get(d.soFar)));
       const diff = value - byNow;
       tile.byNow = m.show(byNow);
       tile.perDay = m.show(usual.perDay);
-      tile.fill = Math.min(1, value / usual.perDay);
-      tile.mark = Math.min(1, byNow / usual.perDay);
+      tile.perDayRaw = usual.perDay;
       if (Math.abs(diff) >= m.step && (byNow === 0 || Math.abs(diff) / byNow > 0.15)) {
         tile.trend = diff > 0 ? 'up' : 'down';
         tile.delta = `${(m.delta || m.show)(Math.abs(diff))} ${diff > 0 ? m.more : m.less}`;
@@ -115,8 +96,8 @@ const Home = (() => {
     });
   }
 
-  /* The 7-day charts. Bottle volume and solids only appear once there is
-   * something to show. */
+  /* The 7-day charts, by the tile that opens them. Bottle volume opens with
+   * feeds, once there is some to show. */
   function weekCharts(units) {
     return [
       { key: 'sleep',  type: 'sleep',  title: 'Sleep per day',   get: METRIC.sleep.get,  show: METRIC.sleep.show },
@@ -124,178 +105,8 @@ const Home = (() => {
       { key: 'feedMl', type: 'feed',   title: 'Bottle volume per day', get: t => t.feedMl || 0,
         show: ml => Fmt.amount(ml, units), optional: true },
       { key: 'diaper', type: 'diaper', title: 'Diapers per day', get: METRIC.diaper.get, show: count },
-      { key: 'solids', type: 'solids', title: 'Solid meals per day', get: METRIC.solids.get, show: count, optional: true },
+      { key: 'solids', type: 'solids', title: 'Solid meals per day', get: METRIC.solids.get, show: count },
     ].filter(c => on(c.type));
-  }
-
-  /* ── alerts ──────────────────────────────────────────────── */
-  /* level: 'warn' (needs you now) · 'info' (worth a look) · 'joy' · 'tip'.
-   * Each has an id that stays the same for the same situation, so dismissing
-   * it sticks until the situation changes. */
-  const RANK = { warn: 0, info: 1, joy: 2, tip: 3 };
-
-  function alerts() {
-    const out = [];
-    const s = Store.settings();
-    const name = babyName();
-    const months = Fmt.ageMonths(s.dob);
-    const now = Date.now();
-
-    /* sleep */
-    if (on('sleep')) {
-      const st = Wake.state(Store.all(), months);
-      if (st.forgotten) {
-        out.push({ id: `forgotten:${st.forgotten.id}`, level: 'warn', icon: '🌙',
-          title: 'A sleep was never ended',
-          body: `Started ${Fmt.dayLabel(st.forgotten.at).toLowerCase()} at ${Fmt.clock(st.forgotten.at)}. Fix it so the wake timer is right.`,
-          action: { label: 'Fix it', act: `entry:${st.forgotten.id}` } });
-      }
-    }
-
-    /* Awake past her wake window and a feed being due live in Next up
-     * (next.js), with the other timings, rather than here. */
-
-    /* diapers: fewer wet ones than usual, judged only late in the day (and
-     * not overnight, when changes are naturally fewer) */
-    const dayBegan = Day.start(0);
-    if (on('diaper') && now - dayBegan >= 9 * HOUR && new Date().getHours() >= 15) {
-      const wet = r => r.data.kind === 'wet' || r.data.kind === 'both';
-      const days = [];
-      for (let k = 1; k <= 7; k++) {
-        const from = Day.start(k), to = Day.start(k - 1);
-        const list = Store.byType('diaper').filter(r => r.at >= from && r.at < to);
-        if (list.length) days.push(list.filter(wet).length);
-      }
-      if (days.length >= 3) {
-        const usual = days.reduce((a, b) => a + b, 0) / days.length;
-        const today = Store.byType('diaper').filter(r => r.at >= dayBegan && wet(r)).length;
-        const soFar = usual * ((now - dayBegan) / DAY);
-        if (usual >= 4 && today < soFar * 0.5) {
-          out.push({ id: `wet:${Day.key(now)}`, level: 'info', icon: '💧',
-            title: 'Fewer wet diapers than usual',
-            body: `${today} so far today — she usually has about ${Math.round(usual)} a day. Keep an eye on feeds, and call your clinic if she seems unwell.`,
-            action: { label: 'Log a diaper', act: 'log:diaper' } });
-        }
-      }
-    }
-
-    /* solids */
-    if (on('solids')) {
-      const Foods = Features.Foods;
-      const meals = Store.byType('solids');
-      for (const r of meals.filter(r => now - r.at < 2 * HOUR && now >= r.at)) {
-        const allergens = [...new Set(Foods.newIn(r).map(Foods.allergen).filter(Boolean))];
-        if (allergens.length) {
-          out.push({ id: `allergen:${r.id}`, level: 'warn', icon: '👀',
-            title: 'Watching for a reaction',
-            body: `First ${allergens.join(' and ')} at ${Fmt.clock(r.at)}. Look out for rash, hives, swelling or vomiting until about ${Fmt.clock(r.at + 2 * HOUR)}.` });
-        }
-      }
-      for (const r of meals.filter(r => r.data.signs && now - r.at < 3 * DAY)) {
-        out.push({ id: `signs:${r.id}`, level: 'info', icon: '⚠️',
-          title: 'Reaction noted',
-          body: `After ${(r.data.foods || []).map(Foods.label).join(', ')} on ${Fmt.shortDate(r.at)}. Mention it to your clinic before trying it again.`,
-          action: { label: 'See it', act: `entry:${r.id}` } });
-      }
-      if (!meals.length && months != null && Fmt.ageDays(s.dob) >= 167 && months < 8) {
-        out.push({ id: 'solids-ready', level: 'tip', icon: '🥣',
-          title: 'Starting solids',
-          body: `Most babies start solids around 6 months. Ask your clinic whether ${name} is ready.` });
-      }
-      const first = meals.length ? meals[meals.length - 1].at : null;
-      if (first && now - first > 14 * DAY && months != null && months < 12) {
-        const tried = new Set(Foods.tried().map(f => f.allergen).filter(Boolean));
-        const left = Foods.ALLERGENS.filter(a => !tried.has(a));
-        if (left.length) {
-          out.push({ id: `allergens:${left.join(',')}`, level: 'tip', icon: '🥜',
-            title: 'Common allergens not tried yet',
-            body: `${cap(listOf(left))}. Current advice is to introduce them during the first year, one at a time — check with your clinic.`,
-            dismissDays: 7 });
-        }
-      }
-    }
-
-    /* growth */
-    if (on('growth') && s.dob && months != null && months < 24) {
-      const last = Store.byType('growth')[0];
-      if (!last) {
-        out.push({ id: 'growth-first', level: 'tip', icon: '📏',
-          title: 'Add her measurements',
-          body: 'Copy weight, length and head size from the clinic health book to see her growth chart.',
-          action: { label: 'Add', act: 'log:growth' }, dismissDays: 7 });
-      } else {
-        const age = now - last.at;
-        if (age > (months < 12 ? 35 : 75) * DAY) {
-          out.push({ id: `growth-due:${last.id}`, level: 'tip', icon: '📏',
-            title: `Last measured ${sinceWords(age)} ago`,
-            body: 'Add the numbers from her next clinic visit to keep her growth chart current.',
-            action: { label: 'Add', act: 'log:growth' }, dismissDays: 7 });
-        }
-      }
-    }
-
-    /* her month birthdays */
-    if (s.dob && months != null && months < 24) {
-      const next = monthBirthday(s.dob);
-      if (next) {
-        const today = Fmt.dayKey(now) === Fmt.dayKey(next.at);
-        const soon = !today && next.at - now < 3 * DAY;
-        if (today || soon) {
-          out.push({ id: `month:${next.months}`, level: 'joy', icon: '🎉',
-            title: today
-              ? `${name} is ${next.months} month${next.months === 1 ? '' : 's'} old today`
-              : `${name} turns ${next.months} month${next.months === 1 ? '' : 's'} ${Fmt.dayLabel(next.at) === 'Tomorrow' ? 'tomorrow' : `on ${new Date(next.at).toLocaleDateString([], { weekday: 'long' })}`}`,
-            body: on('milestone') ? 'Worth a milestone, and a photo.' : 'Happy month-birthday.',
-            action: on('milestone') ? { label: 'Add a milestone', act: 'log:milestone' } : null });
-        }
-      }
-    }
-
-    /* a babysitter can still see the log: a nudge to remove them after */
-    if (!Guest.on()) {
-      for (const g of Guest.cached()) {
-        out.push({ id: `guest:${g.token}`, level: 'info', icon: '🧸',
-          title: `${g.label} can see ${name}'s log`,
-          body: `${g.can_log ? 'They can log too' : 'View only'}, ${Guest.untilWords(g.expires_at, 'until you remove them')}. Remove them once you're back.`,
-          action: { label: 'Remove access', act: `unguest:${g.token}` } });
-      }
-    }
-
-    const hidden = dismissed();
-    // A babysitter needs what's happening, not suggestions meant for the family.
-    const guest = Guest.on();
-    return out
-      .filter(a => !(guest && a.level === 'tip'))
-      .filter(a => !(hidden[a.id] > now))
-      .sort((a, b) => RANK[a.level] - RANK[b.level])
-      .slice(0, MAX_ALERTS);
-  }
-
-  /** The next month-birthday from today (today included), or null. */
-  function monthBirthday(dob) {
-    const born = new Date(dob + 'T00:00:00');
-    if (isNaN(born)) return null;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    for (let m = 1; m <= 25; m++) {
-      const d = new Date(born);
-      d.setMonth(born.getMonth() + m);
-      // 31 Jan + 1 month rolls into March: use the month's last day instead.
-      if (d.getDate() !== born.getDate()) d.setDate(0);
-      if (d >= today) return { months: m, at: d.getTime() + 12 * HOUR };
-    }
-    return null;
-  }
-
-  /** 5 weeks, 3 months — how long ago, in the words a parent would use. */
-  function sinceWords(ms) {
-    const weeks = Math.round(ms / (7 * DAY));
-    if (weeks < 9) return `${weeks} weeks`;
-    return `${Math.round(ms / (30.44 * DAY))} months`;
-  }
-
-  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-  function listOf(items) {
-    return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
   }
 
   /* ── the header photo ────────────────────────────────────── */
@@ -355,35 +166,42 @@ const Home = (() => {
     return Boolean(await Photos.get(HEADER_ID, false));
   }
 
-  /* ── rendering ───────────────────────────────────────────── */
-  /* Which tracker an alert is about, by the start of its id, so its icon
-   * sits in that tracker's colour. */
-  const TONE = {
-    forgotten: 'sleep', wet: 'diaper',
-    allergen: 'solids', signs: 'solids', 'solids-ready': 'solids', allergens: 'solids',
-    'growth-first': 'growth', 'growth-due': 'growth',
-    month: 'milestone', guest: 'milestone',
-  };
-
-  function renderAlerts() {
-    const list = alerts();
-    document.getElementById('homeAlerts').innerHTML = list.length
-      ? list.map((a, i) => `
-        <li class="alert alert-${a.level}" data-alert="${escapeHtml(a.id)}" style="--i:${i}">
-          <span class="alert-icon tone-${TONE[a.id.split(':')[0]] || 'none'}" aria-hidden="true">${a.icon}</span>
-          <span class="alert-text">
-            <b>${escapeHtml(a.title)}</b>
-            <span>${escapeHtml(a.body)}</span>
-            ${a.action ? `<button class="btn btn-small alert-act" data-act="${escapeHtml(a.action.act)}">${escapeHtml(a.action.label)}</button>` : ''}
-          </span>
-          <button class="alert-x" data-dismiss="${escapeHtml(a.id)}" data-days="${a.dismissDays || 0}"
-                  aria-label="Dismiss">✕</button>
-        </li>`).join('')
-      : `<li class="alert alert-calm"><span class="alert-icon tone-growth" aria-hidden="true">🌿</span>
-           <span class="alert-text"><b>All calm</b><span>Nothing out of the ordinary.</span></span></li>`;
+  /* ── since last ──────────────────────────────────────────── */
+  /** Awake or asleep for how long, then the time since each tracker's last
+   *  entry that has a status (feed, diaper). Numbers only: editing them is
+   *  done from Log or History. */
+  function since() {
+    const s = Store.settings();
+    const out = [];
+    if (on('sleep')) {
+      const st = Wake.state(Store.all(), Fmt.ageMonths(s.dob));
+      // A stale reading is a gap in the log, not a real duration.
+      const value = (st.elapsedMs == null || st.stale) ? '—' : Fmt.duration(st.elapsedMs);
+      out.push({ type: 'sleep', label: st.sleeping ? 'Asleep' : 'Awake', value,
+        state: st.sleeping ? 'is-sleeping' : st.status === 'over' ? 'is-over' : '' });
+    }
+    for (const f of Features.all().filter(f => f.statusLabel && f.type !== 'sleep' && on(f.type))) {
+      const record = Store.latest(f.type, { completedOnly: Boolean(f.statusCompletedOnly) });
+      out.push({ type: f.type, label: f.statusLabel, value: record ? f.statusValue(record, s) : '—', state: '' });
+    }
+    return out;
   }
 
+  function renderSince() {
+    const list = since();
+    const box = document.getElementById('homeSince');
+    box.hidden = !list.length;
+    box.style.setProperty('--cols', list.length || 1);
+    box.innerHTML = list.map(t => `
+      <div class="since since-${t.type} ${t.state}">
+        <span class="since-label">${escapeHtml(t.label)}</span>
+        <b class="since-value">${escapeHtml(t.value)}</b>
+      </div>`).join('');
+  }
+
+  /* ── today ───────────────────────────────────────────────── */
   const CHIP = { up: '↑', down: '↓' };
+  let openChart = null;                      // the tracker whose chart is open
 
   /** "since midnight", "since 6:00 AM", "since Subuh, 4:37 AM" — and
    *  "…yesterday" at 3am — so it's plain when her day began. */
@@ -396,8 +214,19 @@ const Home = (() => {
     return name ? `since ${name}, ${when}` : `since ${when}`;
   }
 
+  /** Seven little columns, today last and darkest, and her usual day as a
+   *  dashed line. The full chart is a tap away. */
+  function spark(values, perDay) {
+    const max = Math.max(...values, perDay || 0) || 1;
+    const pct = v => (v / max * 100).toFixed(1);
+    return `<span class="sum-spark" aria-hidden="true">${
+      values.map((v, i) => `<i${i === 6 ? ' class="is-today"' : ''} style="height:${pct(v)}%"></i>`).join('')
+    }${perDay != null ? `<s style="bottom:${pct(perDay)}%"></s>` : ''}</span>`;
+  }
+
   function renderToday(week) {
     const tiles = today(week);
+    if (openChart && !tiles.some(t => t.type === openChart)) openChart = null;
     const box = document.getElementById('homeSummary');
     box.hidden = !tiles.length;
     document.getElementById('summaryHead').hidden = !tiles.length;
@@ -406,26 +235,23 @@ const Home = (() => {
       const chip = t.trend === 'same'
         ? `<span class="sum-chip is-same">On track</span>`
         : t.trend ? `<span class="sum-chip is-${t.trend}">${CHIP[t.trend]} ${escapeHtml(t.delta)}</span>` : '';
-      const meter = t.perDay == null ? '' : `
-        <span class="sum-meter" role="img"
-              aria-label="${escapeHtml(`${t.shown} so far; usually ${t.byNow} by now, ${t.perDay} in a whole day`)}">
-          <i style="width:${(t.fill * 100).toFixed(1)}%"></i><s style="left:${(t.mark * 100).toFixed(1)}%"></s>
-        </span>`;
       const notes = t.perDay == null
-        ? `<em class="sum-note">Not enough days to compare yet</em>`
+        ? `<em class="sum-note">Not enough days yet</em>`
         : `<em class="sum-note">Usually ${escapeHtml(t.byNow)} by now</em>
            <em class="sum-note">Avg ${escapeHtml(t.perDay)} a day</em>`;
+      const open = openChart === t.type;
       return `
-      <div class="sum-tile sum-${t.type}" style="--i:${i}">
-        <span class="sum-top"><span class="sum-icon" aria-hidden="true">${t.icon}</span>${chip}</span>
-        <span class="sum-label">${t.label}</span>
+      <button class="sum-tile sum-${t.type} ${open ? 'is-open' : ''}" data-open="${t.type}" style="--i:${i}"
+              aria-expanded="${open}" aria-controls="statsBody">
+        <span class="sum-top"><span class="sum-label">${t.icon} ${t.label}</span>${chip}</span>
         <b class="sum-value">${escapeHtml(t.shown)}</b>
-        ${meter}${notes}
-      </div>`;
+        ${spark(t.spark, t.perDayRaw)}
+        ${notes}
+      </button>`;
     }).join('');
   }
 
-  /* ── the 7-day charts ────────────────────────────────────── */
+  /* ── the 7-day chart, opened from a tile ─────────────────── */
   /* One column per day, oldest on the left, today on the right with its
    * value on the cap. Tapping a column reads it out above the chart;
    * tapping it again goes back to her usual day. */
@@ -475,22 +301,17 @@ const Home = (() => {
 
   function renderWeek(week = days()) {
     const box = document.getElementById('statsBody');
+    if (!openChart) { box.innerHTML = ''; box.hidden = true; return; }
     const units = Store.settings().units;
-    // Oldest first: six whole days, then today so far.
-    const order = [...week.slice(1, 7)].reverse().concat(week[0]);
+    const order = oldestFirst(week);
     const charts = weekCharts(units)
+      .filter(c => c.type === openChart)
       .map(c => ({ c, cols: order.map((d, i) => ({ value: c.get(d.totals), start: d.start,
         short: weekday(d.start, i),
         long: i === 6 ? 'Today so far' : new Date(d.start).toLocaleDateString([], { weekday: 'long' }) })) }))
       .filter(({ c, cols }) => !c.optional || cols.some(d => d.value > 0));
 
-    document.getElementById('weekHead').hidden = !charts.length;
-    if (!charts.some(({ cols }) => cols.some(d => d.value > 0))) {
-      box.innerHTML = charts.length
-        ? `<p class="empty">Log a few days and trends will show up here.</p>` : '';
-      return;
-    }
-
+    box.hidden = !charts.length;
     box.innerHTML = charts.map(({ c, cols }, n) => {
       const perDay = usualDay(week, c.get)?.perDay ?? null;
       const pick = picked[c.key];
@@ -506,13 +327,39 @@ const Home = (() => {
     }).join('');
   }
 
+  /* ── growing ─────────────────────────────────────────────── */
+  function renderGrowth() {
+    const latest = on('growth') ? Growing.latest() : [];
+    const shown = latest.filter(g => g.record);
+    const box = document.getElementById('homeGrowth');
+    box.hidden = !shown.length;
+    document.getElementById('growthHead').hidden = !shown.length;
+    if (!shown.length) { box.innerHTML = ''; return; }
+    const newest = Math.max(...shown.map(g => g.record.at));
+    document.getElementById('growthMeta').textContent = `measured ${Fmt.shortDate(newest)}`;
+    box.innerHTML = latest.map(g => `
+      <span class="hg">
+        <span class="hg-label">${escapeHtml(g.label)}</span>
+        <b class="hg-value">${escapeHtml(g.value)}</b>
+        <span class="hg-pct">${g.pct != null ? escapeHtml(Who.describe(g.pct).replace(/ percentile$/, '')) : '&nbsp;'}</span>
+      </span>`).join('');
+  }
+
   function render() {
     renderHero();
-    Next.render();
-    renderAlerts();
+    renderSince();
     const week = days();
     renderToday(week);
     renderWeek(week);
+    renderGrowth();
+  }
+
+  function toggleChart(type) {
+    openChart = openChart === type ? null : type;
+    const week = days();
+    renderToday(week);
+    renderWeek(week);
+    if (openChart) document.getElementById('statsBody').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   function pickColumn(col) {
@@ -524,25 +371,14 @@ const Home = (() => {
   }
 
   /* ── wiring ──────────────────────────────────────────────── */
-  function wire({ openSheet, openEntry, toggleSleep, unguest, rerender, toast }) {
+  function wire({ go, toast }) {
     const view = document.getElementById('view-home');
     view.addEventListener('click', e => {
-      const x = e.target.closest('[data-dismiss]');
-      if (x) {
-        const days = Number(x.dataset.days) || 0;
-        dismiss(x.dataset.dismiss, days ? Date.now() + days * DAY : endOfToday());
-        rerender();
-        return;
-      }
+      const tile = e.target.closest('[data-open]');
+      if (tile) { toggleChart(tile.dataset.open); return; }
       const col = e.target.closest('[data-col]');
       if (col) { pickColumn(col); return; }
-      const act = e.target.closest('[data-act]');
-      if (!act) return;
-      const [kind, arg] = act.dataset.act.split(':');
-      if (kind === 'log') openSheet(arg);
-      else if (kind === 'entry') openEntry(arg);
-      else if (kind === 'sleep') toggleSleep();
-      else if (kind === 'unguest') unguest(arg);
+      if (e.target.closest('#homeGrowth')) go('growing');
     });
 
     view.addEventListener('keydown', e => {
@@ -561,5 +397,5 @@ const Home = (() => {
     });
   }
 
-  return { render, wire, clearHero, hasPickedHero, alerts, today, greeting, HEADER_ID };
+  return { render, wire, clearHero, hasPickedHero, today, greeting, HEADER_ID };
 })();
