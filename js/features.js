@@ -30,6 +30,9 @@ const Features = (() => {
 
   const DIAPER_KIND = { wet: 'Wet', dirty: 'Dirty', both: 'Wet + dirty' };
 
+  /** "3h 12m", or "just now" in the first minute. */
+  const since = at => Date.now() - at < Fmt.MIN ? 'just now' : Fmt.duration(Date.now() - at);
+
   const feed = {
     label: 'Feed',
     noun: 'feed',
@@ -78,8 +81,10 @@ const Features = (() => {
     },
 
     /* The Now screen's status card for the most recent one. */
-    statusLabel: 'Last feed',
-    statusValue(record) { return Fmt.ago(record.at); },
+    /* "Since feed 3h 12m": the number alone fits a third of a small phone,
+     * where "3h 12m ago" wraps. */
+    statusLabel: 'Since feed',
+    statusValue(record) { return since(record.at); },
     status(record, settings) {
       return [FEED_METHOD[record.data.method], Fmt.amount(record.data.amount, settings.units)]
         .filter(Boolean).join(' · ');
@@ -127,8 +132,8 @@ const Features = (() => {
       return { title: DIAPER_KIND[record.data.kind] || 'Diaper', detail: 'Diaper change' };
     },
 
-    statusLabel: 'Last diaper',
-    statusValue(record) { return Fmt.ago(record.at); },
+    statusLabel: 'Since diaper',
+    statusValue(record) { return since(record.at); },
     status(record) {
       return DIAPER_KIND[record.data.kind] || '';
     },
@@ -181,7 +186,8 @@ const Features = (() => {
         title: live ? 'Sleeping' : 'Sleep',
         detail: live
           ? `since ${Fmt.clock(record.at)}`
-          : `${Fmt.clock(record.at)} – ${Fmt.clock(record.end)} · ${Fmt.duration(record.end - record.at)}`,
+          // The start time is already beside it in every list.
+          : `${Fmt.duration(record.end - record.at)} · woke ${Fmt.clock(record.end).replace(/\s/g, '\u00a0')}`,
       };
     },
 
@@ -240,6 +246,12 @@ const Features = (() => {
 
     tally(record, totals) {
       totals.baths = (totals.baths || 0) + 1;
+    },
+
+    /* History's line for the day; no Today tile, so the Now grid stays 2×2. */
+    daySummary(totals) {
+      const n = totals.baths || 0;
+      return n ? `${n} bath${n === 1 ? '' : 's'}` : '';
     },
   };
 

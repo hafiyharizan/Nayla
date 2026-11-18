@@ -121,7 +121,7 @@ const Next = (() => {
       if (now >= due && asleep) {
         Object.assign(item, { level: 'soon', title: 'Feed her when she wakes', body: `${last} ${why}` });
       } else if (now >= due) {
-        Object.assign(item, { level: 'now', title: 'Time for a feed', body: `${last} ${why} Watch for hunger cues — rooting, sucking on hands.` });
+        Object.assign(item, { level: 'now', title: 'Time for a feed', body: `${last} ${why}` });
       } else if (due - now <= 30 * MIN) {
         Object.assign(item, { level: 'soon', title: `Feed due ${when(due)}`, body: `${last} ${why}` });
       } else {
@@ -190,7 +190,7 @@ const Next = (() => {
       if (now >= due && asleep) {
         Object.assign(item, { level: 'soon', title: 'Check her diaper when she wakes', body: last });
       } else if (now >= due) {
-        Object.assign(item, { level: 'now', title: 'Diaper check', body: `${last} Worth a check and a change.` });
+        Object.assign(item, { level: 'now', title: 'Diaper check', body: last });
       } else if (due - now <= 30 * MIN) {
         Object.assign(item, { level: 'soon', title: `Diaper check ${when(due)}`, body: last });
       } else {

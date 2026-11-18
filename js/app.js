@@ -120,9 +120,11 @@
     $('#wakeLabel').textContent = st.sleeping ? 'Asleep for' : 'Awake for';
     // A stale reading is a gap in the log, not a real duration — "100h" reads
     // like something is badly wrong with the baby rather than with the log.
-    $('#wakeValue').textContent =
-      (st.elapsedMs == null || st.stale) ? '—' : Fmt.duration(st.elapsedMs);
-    $('#wakeSub').textContent = Wake.hint(st);
+    const shown = (st.elapsedMs == null || st.stale) ? '—' : Fmt.duration(st.elapsedMs);
+    $('#wakeValue').textContent = shown;
+    // "11h 54m" needs a smaller size to stay clear of the ring.
+    $('#wakeValue').classList.toggle('is-long', shown.length > 6);
+    renderWakeHint(Wake.hint(st));
     $('#sleepToggle').textContent = st.sleeping ? 'Woke up' : 'Start sleep';
 
     // A "Start sleep" that never got its "Woke up". Offer to sort it out,
@@ -142,17 +144,38 @@
     $('#ringFill').style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - ratio);
   }
 
+  /** Under the ring: what's next in ink, the age guidance quieter beneath.
+   *  Wake.hint gives "Aim for 2h–2h 30m · sleepy in ~34m". */
+  function renderWakeHint(hint) {
+    const [aim, next] = hint.includes(' · ') ? hint.split(' · ') : [null, hint];
+    const el = $('#wakeSub');
+    el.textContent = '';
+    const lead = document.createElement('b');
+    lead.textContent = next.charAt(0).toUpperCase() + next.slice(1);
+    el.append(lead);
+    if (aim) {
+      const sub = document.createElement('span');
+      sub.textContent = aim;
+      el.append(sub);
+    }
+  }
+
   function renderStatusRow(settings) {
     const shown = enabled().filter(f => f.statusLabel);
     $('#statusRow').hidden = !shown.length;
     $('#statusRow').style.setProperty('--cols', shown.length || 1);
     $('#statusRow').innerHTML = shown.map(f => {
       const record = Store.latest(f.type, { completedOnly: Boolean(f.statusCompletedOnly) });
+      const value = record ? f.statusValue(record, settings) : '—';
+      // Each bit of the note wraps whole: "Wet + dirty", never "Wet / + dirty".
+      const note = record
+        ? String(f.status(record, settings)).split(' · ').map(escapeHtml).map(b => `<i>${b}</i>`).join(' · ')
+        : 'nothing logged';
       return `<button class="stat" data-quick="${f.type}">
         <span class="stat-icon">${f.icon}</span>
         <span class="stat-label">${f.statusLabel}</span>
-        <strong class="stat-value">${record ? escapeHtml(f.statusValue(record, settings)) : '—'}</strong>
-        <span class="stat-note">${record ? escapeHtml(f.status(record, settings)) : 'nothing logged'}</span>
+        <strong class="stat-value">${escapeHtml(value)}</strong>
+        <span class="stat-note">${note}</span>
       </button>`;
     }).join('');
   }
@@ -232,10 +255,15 @@
 
     target.innerHTML = [...groups.values()].map(group => {
       const totals = dayTotals(group[0].at);
+      // Only what happened, in the singular where it's one: "1 feed · 2h sleep".
       const summary = enabled()
-        .map(f => f.todayCell?.(totals, settings))
+        .map(f => f.daySummary ? f.daySummary(totals) : (() => {
+          const c = f.todayCell?.(totals, settings);
+          if (!c || c.value === 0 || c.value === '0m') return '';
+          const label = c.label.toLowerCase();
+          return `${c.value} ${c.value === 1 ? label.replace(/s$/, '') : label}`;
+        })())
         .filter(Boolean)
-        .map(c => `${c.value} ${c.label.toLowerCase()}`)
         .join(' · ');
       return `<div class="day-group">
         <div class="day-head"><h3>${Day.label(group[0].at)}</h3><span>${escapeHtml(summary)}</span></div>
