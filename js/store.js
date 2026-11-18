@@ -38,6 +38,10 @@ const Store = (() => {
     syncKey: '',
     syncCode: '',
     photoKey: '',              // encrypts shared photos; travels only in the pairing QR
+    guestToken: '',            // set only on a babysitter's phone — see guest.js
+    guestLabel: '',
+    guestCanLog: true,
+    guestUntil: null,
     lastPulledAt: 0,
     lastFullPullAt: 0,
   };
@@ -270,7 +274,8 @@ const Store = (() => {
   /** Settings minus the sync credentials and location — backups shouldn't
    *  carry the secrets, or where you live. */
   function publicSettings() {
-    const { syncUrl, syncKey, syncCode, photoKey, lastPulledAt, lastFullPullAt, place, ...rest } = settings;
+    const { syncUrl, syncKey, syncCode, photoKey, lastPulledAt, lastFullPullAt, place,
+      guestToken, guestLabel, guestCanLog, guestUntil, ...rest } = settings;
     return rest;
   }
 

@@ -1,6 +1,7 @@
 /* Next up: what she is likely to need next, worked out from the log.
  *
- * One line each for feeding, sleep, her diaper and her bath, saying either
+ * One line each for feeding, sleep, her diaper and her bath (and any
+ * medicine given in the last day), saying either
  * "do this now", "coming up" or "next around 4:40 PM". The timings come from
  * her own rhythm once there is enough of it in the log, and from common
  * age-based guidance until then. They are a nudge, not a schedule — her
@@ -81,6 +82,11 @@ const Next = (() => {
     if (label === 'Today') return Fmt.clock(ts);
     if (label === 'Yesterday') return `yesterday ${Fmt.clock(ts)}`;
     return new Date(ts).toLocaleDateString([], { weekday: 'long' });
+  }
+
+  /** "7:10 PM", or "tomorrow 2:10 AM" past midnight. */
+  function clockDay(ts) {
+    return Fmt.dayKey(ts) === Fmt.dayKey(Date.now()) ? Fmt.clock(ts) : `tomorrow ${Fmt.clock(ts)}`;
   }
 
   /** "3h 10m" within the day, then "1 day", "3 days". */
@@ -204,7 +210,9 @@ const Next = (() => {
       const lastBath = Store.latest('bath');
       const item = { key: 'bath', tone: 'bath', icon: '🛁',
         action: { label: 'Log a bath', act: 'log:bath' } };
-      if (!lastBath) {
+      if (!lastBath && Guest.on()) {
+        // Nothing to say to a babysitter about a bath the family never logs.
+      } else if (!lastBath) {
         Object.assign(item, { level: 'later', due: Infinity, title: 'Bath time',
           body: 'Log her baths and this will say when the next one is due.', showAction: true });
       } else {
@@ -230,7 +238,48 @@ const Next = (() => {
           Object.assign(item, { level: 'later', title: `Next bath ${when(due)}`, body: last, action: null });
         }
       }
-      out.push(item);
+      if (item.level) out.push(item);
+    }
+
+    /* ── medicine: when the next dose is allowed ──
+     * Never a "Now": this only ever says when a dose would be within the
+     * label's limits, not that she needs one. */
+    if (on('med')) {
+      const Meds = Features.Meds;
+      const recent = Store.byType('med').filter(r => r.at > now - DAY && r.at <= now && r.data.name);
+      const groups = [];
+      for (const r of recent) {                        // newest first
+        const g = groups.find(x => Meds.same(x[0].data.name, r.data.name));
+        if (g) g.push(r); else groups.push([r]);
+      }
+      for (const doses of groups) {
+        const last = doses[0];
+        const name = last.data.name;
+        const rule = Meds.rule(name);
+        const given = `Last ${last.data.dose ? `${last.data.dose} ` : ''}at ${lastTime(last.at)}`;
+        const item = { key: `med:${rule?.key || name.toLowerCase()}`, tone: 'med', icon: '💊', level: 'later',
+          action: { label: 'Log a dose', act: 'log:med' }, showAction: true };
+        if (!rule) {
+          Object.assign(item, { due: last.at, title: `${name}: given ${Fmt.duration(now - last.at)} ago`,
+            body: `${given} · ${doses.length} in 24h. Follow the label or your doctor's advice.` });
+        } else {
+          let ok = last.at + rule.minGapH * HOUR;
+          const full = doses.length >= rule.maxPerDay;
+          if (full) ok = Math.max(ok, doses[rule.maxPerDay - 1].at + DAY);   // the oldest of the last few leaves the 24h
+          const limits = `${rule.label}: at least ${rule.minGapH}h apart, no more than ${rule.maxPerDay} doses in 24h — or as the label or your doctor says.`;
+          const count = `${doses.length} of ${rule.maxPerDay} in 24h`;
+          item.due = ok;
+          if (now < ok) {
+            Object.assign(item, {
+              title: full ? `No more ${name} until ${clockDay(ok)}` : `${name}: next dose after ${clockDay(ok)}`,
+              body: `${given} · ${count}. ${limits}`, showAction: false });
+          } else {
+            Object.assign(item, { title: `${name} can be given again if needed`,
+              body: `${given} · ${count}. ${limits}` });
+          }
+        }
+        out.push(item);
+      }
     }
 
     return out.sort((a, b) => RANK[a.level] - RANK[b.level] || a.due - b.due);
@@ -247,7 +296,7 @@ const Next = (() => {
     document.getElementById('nextHead').hidden = !list.length;
     box.hidden = !list.length;
     box.innerHTML = list.map((it, i) => `
-      <li class="next next-${it.level}" data-next="${it.key}" style="--i:${i}">
+      <li class="next next-${it.level}" data-next="${escapeHtml(it.key)}" style="--i:${i}">
         <span class="next-icon tone-${it.tone}" aria-hidden="true">${it.icon}</span>
         <span class="next-text">
           ${it.level === 'later' ? '' : `<em class="next-tag">${it.level === 'now' ? 'Now' : 'Soon'}</em>`}

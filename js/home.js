@@ -251,8 +251,21 @@ const Home = (() => {
       }
     }
 
+    /* a babysitter can still see the log: a nudge to remove them after */
+    if (!Guest.on()) {
+      for (const g of Guest.cached()) {
+        out.push({ id: `guest:${g.token}`, level: 'info', icon: '🧸',
+          title: `${g.label} can see ${name}'s log`,
+          body: `${g.can_log ? 'They can log too' : 'View only'}, ${Guest.untilWords(g.expires_at, 'until you remove them')}. Remove them once you're back.`,
+          action: { label: 'Remove access', act: `unguest:${g.token}` } });
+      }
+    }
+
     const hidden = dismissed();
+    // A babysitter needs what's happening, not suggestions meant for the family.
+    const guest = Guest.on();
     return out
+      .filter(a => !(guest && a.level === 'tip'))
       .filter(a => !(hidden[a.id] > now))
       .sort((a, b) => RANK[a.level] - RANK[b.level])
       .slice(0, MAX_ALERTS);
@@ -349,7 +362,7 @@ const Home = (() => {
     forgotten: 'sleep', wet: 'diaper',
     allergen: 'solids', signs: 'solids', 'solids-ready': 'solids', allergens: 'solids',
     'growth-first': 'growth', 'growth-due': 'growth',
-    month: 'milestone',
+    month: 'milestone', guest: 'milestone',
   };
 
   function renderAlerts() {
@@ -511,7 +524,7 @@ const Home = (() => {
   }
 
   /* ── wiring ──────────────────────────────────────────────── */
-  function wire({ openSheet, openEntry, toggleSleep, rerender, toast }) {
+  function wire({ openSheet, openEntry, toggleSleep, unguest, rerender, toast }) {
     const view = document.getElementById('view-home');
     view.addEventListener('click', e => {
       const x = e.target.closest('[data-dismiss]');
@@ -529,6 +542,7 @@ const Home = (() => {
       if (kind === 'log') openSheet(arg);
       else if (kind === 'entry') openEntry(arg);
       else if (kind === 'sleep') toggleSleep();
+      else if (kind === 'unguest') unguest(arg);
     });
 
     view.addEventListener('keydown', e => {

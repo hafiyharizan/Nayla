@@ -89,7 +89,9 @@
       `<button class="chip ${historyFilter === 'all' ? 'is-on' : ''}" data-filter="all">All</button>` +
       enabled().map(f =>
         `<button class="chip ${historyFilter === f.type ? 'is-on' : ''}" data-filter="${f.type}">${
-          f.type === 'solids' || f.type === 'growth' ? f.label : `${f.label}s`}</button>`).join('');
+          ['solids', 'growth', 'med'].includes(f.type) ? f.label : `${f.label}s`}</button>`).join('');
+
+    renderGuestChrome();
 
     const growingTab = document.querySelector('.tab[data-tab="growing"]');
     growingTab.hidden = !Growing.anyOn();
@@ -98,6 +100,27 @@
     document.querySelectorAll('.view').forEach(v => { v.hidden = v.dataset.view !== currentView; });
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-on', t.dataset.tab === currentView));
   }
+
+  /* On a babysitter's phone: no Settings, a strip saying whose log this is,
+   * and nothing to log with if she may only look. */
+  function renderGuestChrome() {
+    const guest = Guest.on();
+    const s = Store.settings();
+    // Past its end time with no signal to hear it from the server: the
+    // phone ends it on its own.
+    if (guest && s.guestUntil && Date.now() > s.guestUntil) { Guest.wipe(true); return; }
+    document.body.classList.toggle('is-guest', guest);
+    document.body.classList.toggle('is-guest-view', guest && !Guest.canLog());
+    document.querySelector('.tab[data-tab="settings"]').hidden = guest;
+    if (guest && currentView === 'settings') currentView = 'home';
+    $('#guestBar').hidden = !guest;
+    if (!guest) return;
+    $('#guestBarTitle').textContent = `${s.name || 'Baby'}'s log, shared with ${s.guestLabel || 'you'}`;
+    $('#guestBarSub').textContent =
+      `${cap(Guest.untilWords(s.guestUntil))}${Guest.canLog() ? '' : ' · view only'}`;
+  }
+
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
 
   /* ── NOW view ────────────────────────────────────────────── */
   function renderNow() {
@@ -212,12 +235,14 @@
       const feature = Features.get(r.type);
       const { title, detail } = feature.describe(r, settings);
       const live = r.type === 'sleep' && r.end == null;
-      const note = r.note ? ` · ${escapeHtml(r.note)}` : '';
+      // Who logged it, when it was a babysitter (the server sets data.by).
+      const by = r.data?.by ? `<span class="entry-by">by ${escapeHtml(r.data.by)}</span>` : '';
+      const sub = [escapeHtml(detail), r.note ? escapeHtml(r.note) : ''].filter(Boolean).join(' · ');
       return `<li><button class="entry ${live ? 'is-live' : ''}" data-entry="${r.id}">
         <span class="entry-dot ${r.type}">${feature.icon}</span>
         <span class="entry-main">
           <span class="entry-title">${escapeHtml(title)}</span>
-          <span class="entry-sub">${escapeHtml(detail)}${note}</span>
+          <span class="entry-sub">${by}${sub}</span>
         </span>
         <span class="entry-time">${live ? Fmt.duration(Date.now() - r.at)
           : feature.dateOnly ? Fmt.shortDate(r.at) : Fmt.clock(r.at)}</span>
@@ -278,6 +303,14 @@
 
   /* ── logging actions ─────────────────────────────────────── */
   function openSheet(type, record) {
+    // A babysitter changes only what she logged; the server holds the same line.
+    if (Guest.on()) {
+      if (!Guest.canLog()) { toast('View only — the family keeps the log.'); return; }
+      if (record && !Guest.mine(record)) {
+        toast(`Logged by ${Store.settings().name || 'her'}'s family — only they can change it.`);
+        return;
+      }
+    }
     Sheet.open({
       type, record,
       onSave(fields, existing) {
@@ -313,6 +346,7 @@
   });
 
   function toggleSleep() {
+    if (Guest.on() && !Guest.canLog()) { toast('View only — the family keeps the log.'); return; }
     // Deliberately Wake's view, not Store's: a sleep left running for days is
     // not the one this button should close.
     const active = Wake.state(Store.all(), Fmt.ageMonths(Store.settings().dob)).entry;
@@ -413,6 +447,8 @@
     renderDaySettings(s);
     Home.hasPickedHero().then(has => { $('#homePhotoRow').hidden = !has; });
     renderTrackers();
+    renderGuests();
+    refreshGuests(30000);
     // Show what sync is really using. These fall back to config.js, so
     // displaying only the stored override made a working setup look blank.
     const effective = Sync.effective();
@@ -490,6 +526,7 @@
     diaper: 'Wet and dirty changes',
     sleep: 'Naps, nights and the wake-window ring',
     bath: 'Bath times, and when the next is due',
+    med: 'Doses given, and when the next is allowed',
     solids: 'Meals, foods tried and allergens',
     growth: 'Weight, length and head on the WHO chart',
     milestone: 'Firsts, with a photo',
@@ -517,6 +554,119 @@
       return;
     }
     Store.saveSettings({ trackers });
+  });
+
+  /* ── babysitter access (family phones) ───────────────────── */
+  function renderGuests(list = Guest.cached()) {
+    const el = $('#guestList');
+    el.hidden = !list.length;
+    el.innerHTML = list.map(g => `
+      <li class="guest-row">
+        <span class="guest-row-icon" aria-hidden="true">🧸</span>
+        <span class="guest-row-text"><b>${escapeHtml(g.label)}</b>
+          <em>${escapeHtml(cap(Guest.untilWords(g.expires_at, 'until you remove them')))} · ${g.can_log ? 'can log' : 'view only'}</em></span>
+        <button class="btn btn-small" data-unguest="${escapeHtml(g.token)}">Remove</button>
+      </li>`).join('');
+    $('#guestAdd').textContent = list.length ? 'Add another babysitter' : 'Give a babysitter access';
+  }
+
+  /* Who has access is kept on the phone, so Home can remind you without a
+   * request; it's re-checked now and then, since the other parent may have
+   * added or removed someone. */
+  let guestsCheckedAt = 0;
+  function refreshGuests(every = 5 * 60000) {
+    if (Guest.on() || !Store.settings().syncCode || navigator.onLine === false) return;
+    if (Date.now() - guestsCheckedAt < every) return;
+    guestsCheckedAt = Date.now();
+    const before = JSON.stringify(Guest.cached());
+    Guest.refresh()
+      .then(list => { if (JSON.stringify(list) !== before) render(); })
+      .catch(() => { /* offline or an older server: the cached list stands */ });
+  }
+
+  async function unguest(token) {
+    const g = Guest.cached().find(x => x.token === token);
+    const who = g?.label || 'this babysitter';
+    if (!confirm(`Remove ${who}'s access?\n\n${Store.settings().name || 'Her'}'s log disappears from their phone the next time it connects.`)) return;
+    try {
+      await Guest.revoke(token);
+      toast(`${who} can no longer see the log`);
+    } catch {
+      toast("Couldn't reach the server — try again when there's signal.");
+    }
+    render();
+  }
+
+  document.addEventListener('click', e => {
+    const x = e.target.closest('[data-unguest]');
+    if (x) unguest(x.dataset.unguest);
+  });
+
+  let guestLink = '';
+  function openGuestSheet() {
+    const form = $('#guestForm');
+    form.reset();
+    form.hidden = false;
+    $('#guestReady').hidden = true;
+    $('#guestCreate').disabled = false;
+    $('#guestUntil').querySelectorAll('button').forEach(b => b.classList.toggle('is-on', b.dataset.until === 'today'));
+    $('#guestSheet').hidden = false;
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => form.elements.label.focus(), 50);
+  }
+
+  function closeGuestSheet() {
+    $('#guestSheet').hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  $('#guestAdd').addEventListener('click', () => {
+    if (!Sync.effective().url) { toast('Babysitter access needs the sync server — see Advanced under Sync.'); return; }
+    openGuestSheet();
+  });
+  $('#guestClose').addEventListener('click', closeGuestSheet);
+  $('#guestSheet').addEventListener('click', e => { if (e.target.id === 'guestSheet') closeGuestSheet(); });
+  $('#guestUntil').addEventListener('click', e => {
+    const b = e.target.closest('[data-until]');
+    if (!b) return;
+    $('#guestUntil').querySelectorAll('button').forEach(x => x.classList.toggle('is-on', x === b));
+  });
+
+  $('#guestForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const form = e.target;
+    const label = form.elements.label.value.trim();
+    if (!label) { toast('Add their name, so you know whose access it is.'); form.elements.label.focus(); return; }
+    const pick = $('#guestUntil .is-on')?.dataset.until || 'today';
+    const until = pick === 'open' ? null
+      : pick === 'day' ? Date.now() + 24 * Fmt.HOUR
+      : new Date().setHours(23, 59, 59, 999);
+    $('#guestCreate').disabled = true;
+    try {
+      guestLink = await Guest.create({ label, canLog: form.elements.canLog.checked, until });
+    } catch (err) {
+      $('#guestCreate').disabled = false;
+      toast(/function|404|PGRST/i.test(String(err.message))
+        ? 'The server needs updating first — apply supabase/migrations/0005_guests.sql.'
+        : "Couldn't reach the server — try again when there's signal.");
+      return;
+    }
+    form.hidden = true;
+    $('#guestReadyLead').textContent =
+      `Have ${label} point their phone's camera at this and tap the link. They'll see ${Store.settings().name || 'her'}'s log ${Guest.untilWords(until, 'until you remove them')}.`;
+    $('#guestQr').innerHTML = QR.svg(guestLink, { size: 240, dark: '#241d16', light: '#ffffff' });
+    $('#guestReady').hidden = false;
+    render();
+  });
+
+  $('#guestShare').addEventListener('click', async () => {
+    const title = `${Store.settings().name || 'Baby'}'s log`;
+    if (navigator.share) {
+      try { await navigator.share({ title, url: guestLink }); } catch { /* cancelled */ }
+      return;
+    }
+    try { await navigator.clipboard.writeText(guestLink); toast('Link copied — send it to them'); }
+    catch { toast("Couldn't share the link on this browser."); }
   });
 
   /** Never overwrite a field the user is currently typing in. */
@@ -691,6 +841,7 @@
     $('#babyAge').textContent = Fmt.age(s.dob);
 
     buildChrome();
+    refreshGuests();
     if (currentView === 'home') Home.render();
     else if (currentView === 'now') renderNow();
     else if (currentView === 'growing') Growing.render($('#growingBody'), { renderList });
@@ -703,6 +854,7 @@
     openSheet: type => openSheet(type),
     openEntry: id => { const r = Store.get(id); if (r) openSheet(r.type, r); },
     toggleSleep,
+    unguest,
     rerender: render,
     toast,
   });
@@ -729,6 +881,27 @@
   const invited = Pair.claimFromUrl();
   if (invited) adopt(invited);
 
+  /* A babysitter's link. Joining asks the server first, so it's async; the
+   * app shows its empty Home meanwhile, then fills in. */
+  async function joinGuest(token) {
+    const res = await Guest.join(token);
+    if (res.error) { toast(res.error); return; }
+    if (!res.label) return;                     // already this guest
+    Guest.clearEnded();
+    $('#guestEnded').hidden = true;
+    showView('home');
+    toast(`Welcome, ${res.label} — getting ${Store.settings().name || 'her'}'s log`);
+    Sync.run();
+  }
+  const guestInvite = Guest.claimFromUrl();
+  if (guestInvite) joinGuest(guestInvite);
+
+  $('#guestEnded').hidden = !Guest.wasEnded() || Guest.on();
+  $('#guestEndedOk').addEventListener('click', () => { Guest.clearEnded(); $('#guestEnded').hidden = true; });
+  $('#guestLeave').addEventListener('click', () => {
+    if (confirm(`Leave ${Store.settings().name || 'her'}'s log? It will be removed from this phone.`)) Guest.wipe(false);
+  });
+
   Store.onChange(render);
   render();
   enter();
@@ -745,6 +918,8 @@
   // fragment, which is not a page load — app startup never runs, and without
   // this the link would appear to do nothing at all.
   window.addEventListener('hashchange', () => {
+    const guestToken = Guest.claimFromUrl();
+    if (guestToken) { joinGuest(guestToken); return; }
     const invite = Pair.claimFromUrl();
     if (!invite) return;
     adopt(invite);

@@ -50,6 +50,8 @@
   --solids-soft: #F8DDC4;
   --bath:        #3A8FA3;
   --bath-soft:   #CDE8EE;
+  --med:         #C0577E;
+  --med-soft:    #F6D6E2;
   --growth:      #4A8F52;   /* the line on the growth chart: checked for contrast */
   --growth-soft: #D8EBD3;
   --milestone:   #9A6CC0;
@@ -111,6 +113,8 @@
     --solids-soft: #3F2A18;
     --bath:        #6DBCCF;
     --bath-soft:   #1B3238;
+    --med:         #E58CAE;
+    --med-soft:    #3D2230;
     --growth:      #62A86A;
     --growth-soft: #22331F;
     --milestone:   #B98FDB;
@@ -426,6 +430,7 @@ main { padding: 0 20px; max-width: 620px; margin: 0 auto; }
 .quick-sleep  { background: var(--sleep-soft); }
 .quick-solids { background: var(--solids-soft); }
 .quick-bath   { background: var(--bath-soft); }
+.quick-med    { background: var(--med-soft); }
 /* An odd one out spans the row rather than sitting alone in half of it. */
 .quick:last-child:nth-child(odd) { grid-column: 1 / -1; min-height: 96px; }
 
@@ -485,6 +490,7 @@ main { padding: 0 20px; max-width: 620px; margin: 0 auto; }
 .entry-dot.sleep  { background: var(--sleep-soft); }
 .entry-dot.solids { background: var(--solids-soft); }
 .entry-dot.bath   { background: var(--bath-soft); }
+.entry-dot.med    { background: var(--med-soft); }
 .entry-dot.growth { background: var(--growth-soft); }
 .entry-dot.milestone { background: var(--milestone-soft); }
 
@@ -499,6 +505,13 @@ main { padding: 0 20px; max-width: 620px; margin: 0 auto; }
   overflow: hidden;
   margin-top: 2px;
 }
+.entry-by {
+  display: inline-block; margin-right: 6px; padding: 0 7px;
+  border-radius: 999px;
+  background: var(--milestone-soft); color: var(--text-soft);
+  font-size: 11.5px; line-height: 1.6;
+}
+.entry-sub:empty { display: none; }
 .entry-time {
   font-size: 12.5px; color: var(--text-dim);
   text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;
@@ -1052,6 +1065,7 @@ body[data-view="home"] .topbar { display: none; }
 .tracker-sleep { background: var(--sleep-soft); }
 .tracker-solids { background: var(--solids-soft); }
 .tracker-bath { background: var(--bath-soft); }
+.tracker-med { background: var(--med-soft); }
 .tracker-growth { background: var(--growth-soft); }
 .tracker-milestone { background: var(--milestone-soft); }
 .tracker-text { flex: 1; min-width: 0; }
@@ -1288,6 +1302,72 @@ body[data-view="home"] .topbar { display: none; }
 }
 .alert-x:active { background: var(--surface-2); }
 
+/* ── babysitter access ─────────────────────────────────────── */
+/* On her phone: a quiet strip across the top of every tab. */
+.guest-bar {
+  display: flex; align-items: center; gap: 12px;
+  margin: 14px 0 0;
+  padding: 12px 12px 12px 16px;
+  background: var(--milestone-soft);
+  border-radius: var(--radius-lg);
+}
+.guest-bar[hidden] { display: none; }
+.guest-bar-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.guest-bar-text b { font-size: 14px; font-weight: 600; letter-spacing: -.02em; line-height: 1.3; }
+.guest-bar-text span { font-size: 12.5px; color: var(--text-soft); }
+.guest-bar .btn { flex: 0 0 auto; background: var(--surface); border-color: transparent; }
+
+/* Nothing to log with on a view-only phone, and no settings on any guest's. */
+.is-guest .hero-cam,
+.is-guest .hero-add,
+.is-guest .install-banner { display: none !important; }
+.is-guest-view #quickGrid,
+.is-guest-view #quickTitle,
+.is-guest-view #sleepToggle,
+.is-guest-view #micBtn,
+.is-guest-view .next-act,
+.is-guest-view .alert-act { display: none !important; }
+
+/* Family phones: who has access, each with a way to end it. */
+.guest-list { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.guest-list[hidden] { display: none; }
+.guest-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 10px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+}
+.guest-row-icon {
+  flex: 0 0 34px; width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--milestone-soft);
+  font-size: 16px;
+}
+.guest-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.guest-row-text b { font-size: 15px; font-weight: 500; letter-spacing: -.02em; }
+.guest-row-text em { font-style: normal; font-size: 12.5px; color: var(--text-dim); }
+.guest-row .btn { flex: 0 0 auto; color: var(--danger); }
+
+/* Her phone, after access ended: says so, over an empty app. */
+.guest-ended {
+  position: fixed; inset: 0; z-index: 60;
+  display: grid; place-items: center;
+  padding: 24px 16px;
+  background: var(--bg);
+}
+.guest-ended[hidden] { display: none; }
+.guest-ended-card {
+  max-width: 360px; text-align: center;
+  padding: 32px 24px 26px;
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+}
+.guest-ended-icon { font-size: 40px; margin-bottom: 8px; }
+.guest-ended-card h2 { font-family: var(--display); font-size: 22px; font-weight: 600; letter-spacing: -.03em; margin: 0 0 8px; }
+.guest-ended-card p { font-size: 14.5px; line-height: 1.55; color: var(--text-soft); margin: 0 0 22px; }
+.guest-ended-card .btn { width: 100%; }
+
 /* Next up: one line per need. Due now is lifted out in warm yellow with
    its button; later ones sit quietly, a schedule rather than a nudge. */
 .next-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -1313,6 +1393,7 @@ body[data-view="home"] .topbar { display: none; }
 .next-icon.tone-sleep  { background: var(--sleep-soft); }
 .next-icon.tone-diaper { background: var(--diaper-soft); }
 .next-icon.tone-bath   { background: var(--bath-soft); }
+.next-icon.tone-med    { background: var(--med-soft); }
 .next-now .next-icon[class*="tone-"] { background: var(--surface); }
 .next-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .next-text b { font-size: 15px; font-weight: 600; letter-spacing: -.025em; line-height: 1.3; }
