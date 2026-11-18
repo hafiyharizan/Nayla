@@ -48,6 +48,8 @@
   --sleep-soft:  #F0DBD3;
   --solids:      #C9773A;
   --solids-soft: #F8DDC4;
+  --bath:        #3A8FA3;
+  --bath-soft:   #CDE8EE;
   --growth:      #4A8F52;   /* the line on the growth chart: checked for contrast */
   --growth-soft: #D8EBD3;
   --milestone:   #9A6CC0;
@@ -107,6 +109,8 @@
     --sleep-soft:  #3D2B25;
     --solids:      #E39A5E;
     --solids-soft: #3F2A18;
+    --bath:        #6DBCCF;
+    --bath-soft:   #1B3238;
     --growth:      #62A86A;
     --growth-soft: #22331F;
     --milestone:   #B98FDB;
@@ -412,6 +416,9 @@ main { padding: 0 20px; max-width: 620px; margin: 0 auto; }
 .quick-diaper { background: var(--diaper-soft); }
 .quick-sleep  { background: var(--sleep-soft); }
 .quick-solids { background: var(--solids-soft); }
+.quick-bath   { background: var(--bath-soft); }
+/* An odd one out spans the row rather than sitting alone in half of it. */
+.quick:last-child:nth-child(odd) { grid-column: 1 / -1; min-height: 96px; }
 
 /* ── today ─────────────────────────────────────────────────── */
 .today { display: grid; grid-template-columns: repeat(var(--cols, 3), 1fr); gap: 10px; }
@@ -468,6 +475,7 @@ main { padding: 0 20px; max-width: 620px; margin: 0 auto; }
 .entry-dot.diaper { background: var(--diaper-soft); }
 .entry-dot.sleep  { background: var(--sleep-soft); }
 .entry-dot.solids { background: var(--solids-soft); }
+.entry-dot.bath   { background: var(--bath-soft); }
 .entry-dot.growth { background: var(--growth-soft); }
 .entry-dot.milestone { background: var(--milestone-soft); }
 
@@ -1033,6 +1041,7 @@ body[data-view="home"] .topbar { display: none; }
 .tracker-diaper { background: var(--diaper-soft); }
 .tracker-sleep { background: var(--sleep-soft); }
 .tracker-solids { background: var(--solids-soft); }
+.tracker-bath { background: var(--bath-soft); }
 .tracker-growth { background: var(--growth-soft); }
 .tracker-milestone { background: var(--milestone-soft); }
 .tracker-text { flex: 1; min-width: 0; }
@@ -1247,6 +1256,7 @@ body[data-view="home"] .topbar { display: none; }
 .alert-icon.tone-sleep     { background: var(--sleep-soft); }
 .alert-icon.tone-diaper    { background: var(--diaper-soft); }
 .alert-icon.tone-solids    { background: var(--solids-soft); }
+.alert-icon.tone-bath      { background: var(--bath-soft); }
 .alert-icon.tone-growth    { background: var(--growth-soft); }
 .alert-icon.tone-milestone { background: var(--milestone-soft); }
 .alert-warn .alert-icon, .alert-joy .alert-icon { background: var(--surface); }
@@ -1267,6 +1277,50 @@ body[data-view="home"] .topbar { display: none; }
   cursor: pointer;
 }
 .alert-x:active { background: var(--surface-2); }
+
+/* Next up: one line per need. Due now is lifted out in warm yellow with
+   its button; later ones sit quietly, a schedule rather than a nudge. */
+.next-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.next-list[hidden] { display: none; }
+.next {
+  display: flex; gap: 13px; align-items: flex-start;
+  padding: 14px 16px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+}
+.next-now { background: var(--warn-soft); padding: 16px; }
+.next-later { padding: 11px 16px; align-items: center; }
+.next-icon {
+  flex: 0 0 38px; width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border-radius: 13px;
+  background: var(--surface-2);
+  font-size: 18px; line-height: 1;
+}
+.next-now .next-icon { background: var(--surface); }
+.next-later .next-icon { width: 32px; height: 32px; flex-basis: 32px; font-size: 15px; border-radius: 11px; }
+.next-icon.tone-feed   { background: var(--feed-soft); }
+.next-icon.tone-sleep  { background: var(--sleep-soft); }
+.next-icon.tone-diaper { background: var(--diaper-soft); }
+.next-icon.tone-bath   { background: var(--bath-soft); }
+.next-now .next-icon[class*="tone-"] { background: var(--surface); }
+.next-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.next-text b { font-size: 15px; font-weight: 600; letter-spacing: -.025em; line-height: 1.3; }
+.next-text span { font-size: 13px; color: var(--text-soft); line-height: 1.5; }
+.next-later .next-text b { font-size: 14px; font-weight: 500; }
+.next-later .next-text span { font-size: 12.5px; color: var(--text-dim); line-height: 1.4; }
+.next-tag {
+  align-self: flex-start;
+  font-style: normal; font-size: 11px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-soft);
+}
+.next-now .next-tag { color: var(--danger); }
+.next-act {
+  align-self: flex-start; margin-top: 9px;
+  background: var(--accent); color: var(--on-accent); border-color: transparent;
+}
+.next-soon .next-act { background: var(--surface-2); color: var(--text); }
 
 /* Today: one pastel tile per tracker, like the log buttons on Now. */
 .sum-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -1344,6 +1398,7 @@ body[data-view="home"] .topbar { display: none; }
 @keyframes grow-x { from { transform: scaleX(0); } }
 @keyframes grow-y { from { transform: scaleY(0); } }
 .is-entering .hero,
+.is-entering .next,
 .is-entering .alert,
 .is-entering .sum-tile,
 .is-entering .stat-block {

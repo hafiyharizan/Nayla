@@ -461,6 +461,7 @@
     feed: 'Bottle and breast feeds',
     diaper: 'Wet and dirty changes',
     sleep: 'Naps, nights and the wake-window ring',
+    bath: 'Bath times, and when the next is due',
     solids: 'Meals, foods tried and allergens',
     growth: 'Weight, length and head on the WHO chart',
     milestone: 'Firsts, with a photo',

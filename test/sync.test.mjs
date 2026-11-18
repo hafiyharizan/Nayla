@@ -124,9 +124,9 @@ async function newPhone(label) {
   await page.reload();
   await page.waitForTimeout(200);
 
-  ok('quick buttons built from registry', (await page.locator('#quickGrid .quick').count()) === 4);   // feed, diaper, sleep, solids
+  ok('quick buttons built from registry', (await page.locator('#quickGrid .quick').count()) === 5);   // feed, diaper, sleep, bath, solids
   ok('status cards built from registry', (await page.locator('#statusRow .stat').count()) === 3);
-  ok('filters built from registry', (await page.locator('#historyFilters .chip').count()) === 7);   // All + six trackers
+  ok('filters built from registry', (await page.locator('#historyFilters .chip').count()) === 8);   // All + seven trackers
   // Her age in whatever unit suits it now — asserting "weeks" dated badly
   // the moment she turned four months old.
   const age = await page.textContent('#babyAge');

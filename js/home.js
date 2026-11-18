@@ -1,8 +1,10 @@
 /* Home: the screen the app opens on.
  *
- * Four things, top to bottom:
+ * Five things, top to bottom:
  *   a header photo   picked on this phone and kept on this phone; until one
  *                    is picked, the newest milestone photo this phone has
+ *   next up          feed, sleep, diaper and bath: due now, soon, or when
+ *                    (next.js)
  *   alerts           what needs attention now, and a few gentle suggestions,
  *                    worked out from the log — never more than five
  *   today            each tracker's total since midnight, against what she
@@ -147,39 +149,11 @@ const Home = (() => {
           title: 'A sleep was never ended',
           body: `Started ${Fmt.dayLabel(st.forgotten.at).toLowerCase()} at ${Fmt.clock(st.forgotten.at)}. Fix it so the wake timer is right.`,
           action: { label: 'Fix it', act: `entry:${st.forgotten.id}` } });
-      } else if (!st.sleeping && !st.stale && st.range && st.status === 'over') {
-        out.push({ id: `over:${st.since}`, level: 'warn', icon: '⏰',
-          title: `Awake ${Fmt.duration(st.elapsedMs)}`,
-          body: `That's past her ${Fmt.duration(st.range.min * MIN)}–${Fmt.duration(st.range.max * MIN)} wake window. Time to wind down?`,
-          action: { label: 'Start sleep', act: 'sleep' } });
-      } else if (!st.sleeping && !st.stale && st.range && st.status === 'due') {
-        out.push({ id: `due:${st.since}`, level: 'info', icon: '😴',
-          title: 'In the sleep window',
-          body: `Awake ${Fmt.duration(st.elapsedMs)} — a good time for a nap if she's showing sleepy cues.`,
-          action: { label: 'Start sleep', act: 'sleep' } });
       }
     }
 
-    /* feeds: longer than her usual gap */
-    if (on('feed')) {
-      const feeds = Store.byType('feed').filter(r => r.at > now - 3 * DAY).map(r => r.at).sort((a, b) => a - b);
-      if (feeds.length >= 6) {
-        const gaps = [];
-        for (let i = 1; i < feeds.length; i++) {
-          const g = feeds[i] - feeds[i - 1];
-          if (g > 20 * MIN && g < 8 * HOUR) gaps.push(g);    // ignore top-ups and missed logging
-        }
-        gaps.sort((a, b) => a - b);
-        const usual = gaps[Math.floor(gaps.length / 2)];
-        const since = now - feeds[feeds.length - 1];
-        if (usual && since > Math.max(usual * 1.3, 2 * HOUR) && since < 12 * HOUR) {
-          out.push({ id: `feedgap:${feeds[feeds.length - 1]}`, level: 'info', icon: '🍼',
-            title: `${Fmt.duration(since)} since the last feed`,
-            body: `She's usually fed about every ${Fmt.duration(usual)}.`,
-            action: { label: 'Log a feed', act: 'log:feed' } });
-        }
-      }
-    }
+    /* Awake past her wake window and a feed being due live in Next up
+     * (next.js), with the other timings, rather than here. */
 
     /* diapers: fewer wet ones than usual, judged only late in the day (and
      * not overnight, when changes are naturally fewer) */
@@ -372,8 +346,7 @@ const Home = (() => {
   /* Which tracker an alert is about, by the start of its id, so its icon
    * sits in that tracker's colour. */
   const TONE = {
-    forgotten: 'sleep', over: 'sleep', due: 'sleep',
-    feedgap: 'feed', wet: 'diaper',
+    forgotten: 'sleep', wet: 'diaper',
     allergen: 'solids', signs: 'solids', 'solids-ready': 'solids', allergens: 'solids',
     'growth-first': 'growth', 'growth-due': 'growth',
     month: 'milestone',
@@ -394,7 +367,7 @@ const Home = (() => {
                   aria-label="Dismiss">✕</button>
         </li>`).join('')
       : `<li class="alert alert-calm"><span class="alert-icon tone-growth" aria-hidden="true">🌿</span>
-           <span class="alert-text"><b>All calm</b><span>Nothing needs you right now.</span></span></li>`;
+           <span class="alert-text"><b>All calm</b><span>Nothing out of the ordinary.</span></span></li>`;
   }
 
   const CHIP = { up: '↑', down: '↓' };
@@ -522,6 +495,7 @@ const Home = (() => {
 
   function render() {
     renderHero();
+    Next.render();
     renderAlerts();
     const week = days();
     renderToday(week);

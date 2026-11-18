@@ -98,20 +98,121 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   await quiet.ctx.close();
 }
 
-/* ── 2. alerts ─────────────────────────────────────────────── */
+/* ── 2. next up ────────────────────────────────────────────── */
+const nextItems = p => p.$$eval('#homeNext .next', els => els.map(e => ({
+  key: e.dataset.next, level: e.className.match(/next-(now|soon|later)/)[1],
+  title: e.querySelector('b').textContent, text: e.textContent })));
+const nextOf = async (p, key) => (await nextItems(p)).find(i => i.key === key);
 {
   const now = Date.now();
   // Woke 3h ago — past a 4-month-old's 2–2.5h window.
-  const { ctx, p } = await phone('alerts', { records: [
+  const { ctx, p } = await phone('awake', { records: [
     { type: 'sleep', at: now - 5 * H, end: now - 3 * H },
   ] });
-  ok('awake past the window is flagged', await hasAlert(p, /^Awake 3h/), (await alertTitles(p)).join(' | '));
-  await p.click('[data-act="sleep"]');
+  const sl = await nextOf(p, 'sleep');
+  ok('awake past the window: time for her to sleep', sl?.level === 'now' && /Time for her to sleep/.test(sl.title), JSON.stringify(sl));
+  ok('…and it is first in the list', (await nextItems(p))[0]?.key === 'sleep');
+  ok('…and not repeated under Right now', !(await hasAlert(p, /^Awake/)));
+  await p.click('#homeNext [data-act="sleep"]');
   await p.waitForTimeout(150);
-  ok('"Start sleep" on the alert starts a sleep', await p.evaluate(() => Boolean(Store.activeSleep())));
-  ok('…and the alert goes', !(await hasAlert(p, /^Awake/)));
+  ok('"Start sleep" starts a sleep', await p.evaluate(() => Boolean(Store.activeSleep())));
+  ok('…and she is now asleep', /^(Napping|Asleep)/.test((await nextOf(p, 'sleep'))?.title || ''));
   await ctx.close();
 }
+{
+  // Napping 2h 40m at 2pm: past a 4-month-old's 2h nap.
+  const at = new Date(); at.setHours(14, 0, 0, 0);
+  const { ctx, p } = await phone('long-nap', { time: at.getTime(), records: [
+    { type: 'sleep', at: at.getTime() - 160 * 60000 },
+  ] });
+  const sl = await nextOf(p, 'sleep');
+  ok('a long nap: time to wake her', sl?.level === 'now' && sl.title === 'Time to wake her', JSON.stringify(sl));
+  await p.click('#homeNext [data-act="sleep"]');
+  await p.waitForTimeout(150);
+  ok('"She woke up" ends the sleep', await p.evaluate(() => !Store.activeSleep()));
+  await ctx.close();
+}
+{
+  // Asleep at night for 5h: let her sleep.
+  const at = new Date(); at.setHours(2, 0, 0, 0);
+  const { ctx, p } = await phone('night', { time: at.getTime(), records: [
+    { type: 'sleep', at: at.getTime() - 5 * H },
+  ] });
+  const sl = await nextOf(p, 'sleep');
+  ok('a night sleep is left alone', sl?.level === 'later' && /let her sleep/.test(sl.text), JSON.stringify(sl));
+  await ctx.close();
+}
+{
+  // A two-week-old asleep 3h, last fed 4.5h ago: wake her for a feed.
+  const at = new Date(); at.setHours(2, 0, 0, 0);
+  const t = at.getTime();
+  const { ctx, p } = await phone('newborn', { time: t, settings: { dob: iso(t - 14 * D) }, records: [
+    { type: 'sleep', at: t - 3 * H },
+    { type: 'feed', at: t - 4.5 * H, data: { method: 'left' } },
+  ] });
+  const sl = await nextOf(p, 'sleep');
+  ok('a newborn long past a feed is woken for one', sl?.level === 'now' && sl.title === 'Wake her for a feed', JSON.stringify(sl));
+  await ctx.close();
+}
+{
+  // Fed 2h 20m ago, no history: a 4-month-old feeds about every 3h, so not yet.
+  const at = new Date(); at.setHours(11, 0, 0, 0);
+  const t = at.getTime();
+  const { ctx, p } = await phone('feed-soon', { time: t, records: [
+    { type: 'feed', at: t - 140 * 60000, data: { method: 'bottle' } },
+  ] });
+  let f = await nextOf(p, 'feed');
+  ok('a feed not yet due says when', f?.level === 'later' && /^Next feed around/.test(f.title), JSON.stringify(f));
+  // An hour later it is due.
+  await p.clock.fastForward('01:00:00');
+  await p.evaluate(() => Home.render());
+  f = await nextOf(p, 'feed');
+  ok('…and later it is time for a feed', f?.level === 'now' && f.title === 'Time for a feed', JSON.stringify(f));
+  ok('…by her age, until she has a rhythm', /Babies her age usually feed about every 3h/.test(f.text));
+  await p.click('#homeNext [data-act="log:feed"]');
+  ok('"Log a feed" opens the feed sheet', await p.isVisible('#sheetBackdrop') && /feed/i.test(await p.textContent('#sheetTitle')));
+  await ctx.close();
+}
+{
+  // Feeds every 3h for three days, the last one 5h ago: her own rhythm.
+  const now = Date.now();
+  const feeds = [];
+  for (let t = now - 5 * H; t > now - 3 * D; t -= 3 * H) feeds.push({ type: 'feed', at: t, data: { method: 'bottle' } });
+  const { ctx, p } = await phone('feedgap', { records: feeds });
+  const f = await nextOf(p, 'feed');
+  ok('a feed past her usual gap is due now', f?.level === 'now', JSON.stringify(f));
+  ok('it says what usual is', /She usually feeds about every 3h/.test(f?.text || ''));
+  ok('the old feed-gap alert is gone from Right now', !(await hasAlert(p, /since the last feed/)));
+  await ctx.close();
+}
+{
+  // Diaper 3h 30m ago and a bath three days ago, mid-morning, awake.
+  const at = new Date(); at.setHours(10, 0, 0, 0);
+  const t = at.getTime();
+  const { ctx, p } = await phone('diaper-bath', { time: t, records: [
+    { type: 'diaper', at: t - 210 * 60000, data: { kind: 'wet' } },
+    { type: 'bath', at: t - 3 * D },
+  ] });
+  const d = await nextOf(p, 'diaper');
+  ok('a diaper changed long ago: diaper check', d?.level === 'now' && d.title === 'Diaper check', JSON.stringify(d));
+  ok('…saying when and what it was', /Last changed 3h 30m ago .*wet/.test(d?.text || ''));
+  const b = await nextOf(p, 'bath');
+  ok('a bath three days ago: bath time', b && b.level !== 'later' && b.title === 'Bath time', JSON.stringify(b));
+  await p.click('#homeNext [data-act="log:bath"]');
+  await p.click('.sheet-actions button[type="submit"]');
+  await p.waitForTimeout(150);
+  const after = await nextOf(p, 'bath');
+  ok('logging a bath moves the next one on', after?.level === 'later' && /^Next bath/.test(after.title), JSON.stringify(after));
+  await ctx.close();
+}
+{
+  const { ctx, p } = await phone('bath-tile');
+  await p.click('.tab[data-tab="now"]');
+  ok('bath has a one-tap tile on Now', await p.isVisible('.quick-bath'));
+  await ctx.close();
+}
+
+/* ── 3. alerts ─────────────────────────────────────────────── */
 {
   const now = Date.now();
   const { ctx, p } = await phone('forgotten', { records: [{ type: 'sleep', at: now - 30 * H }] });
@@ -119,23 +220,6 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   await p.click('[data-act^="entry:"]');
   ok('"Fix it" opens that sleep', await p.isVisible('#sheetBackdrop') &&
     (await p.textContent('#sheetTitle')) === 'Edit sleep');
-  await ctx.close();
-}
-{
-  // Feeds every 3h for three days, the last one 5h ago.
-  const now = Date.now();
-  const feeds = [];
-  for (let t = now - 5 * H; t > now - 3 * D; t -= 3 * H) feeds.push({ type: 'feed', at: t, data: { method: 'bottle' } });
-  const { ctx, p } = await phone('feedgap', { records: feeds });
-  ok('a longer-than-usual gap since the last feed is flagged',
-    await hasAlert(p, /^5h since the last feed/), (await alertTitles(p)).join(' | '));
-  ok('it says what usual is', (await p.textContent('#homeAlerts')).includes('about every 3h'));
-
-  // Dismiss it: gone, and still gone after a reload.
-  await p.click('#homeAlerts [data-dismiss^="feedgap"]');
-  ok('dismissing hides it', !(await hasAlert(p, /since the last feed/)));
-  await p.reload(); await p.waitForTimeout(300);
-  ok('…and it stays dismissed', !(await hasAlert(p, /since the last feed/)));
   await ctx.close();
 }
 {
@@ -174,7 +258,7 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   await ctx.close();
 }
 
-/* ── 3. today, against a usual day ────────────────────────── */
+/* ── 4. today, against a usual day ────────────────────────── */
 /* Her day runs from 6am (a set time here; the others are tested below) to the
  * next 6am, and a sleep counts whole on the day it started. */
 {
@@ -261,7 +345,7 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   await ctx.close();
 }
 
-/* ── 3b. midnight, sunrise, Subuh ───────────────────────────── */
+/* ── 4b. midnight, sunrise, Subuh ───────────────────────────── */
 {
   const melbourne = { timezoneId: 'Australia/Melbourne', geolocation: { latitude: -37.8136, longitude: 144.9631 },
     permissions: ['geolocation'] };
@@ -325,7 +409,7 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   await kept.ctx.close();
 }
 
-/* ── 4. the header photo stays on this phone ──────────────── */
+/* ── 5. the header photo stays on this phone ──────────────── */
 {
   const code = 'a'.repeat(32);
   const { ctx, p } = await phone('photo', { settings: { syncCode: code, photoKey: 'C'.repeat(43) } });
