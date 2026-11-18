@@ -95,7 +95,11 @@ const Sync = (() => {
       const detail = await res.text().catch(() => '');
       throw new Error(`${name} → ${res.status}${detail ? `: ${detail.slice(0, 120)}` : ''}`);
     }
-    return res.json();
+    // A `returns void` function answers 204 with no body (guest create and
+    // revoke, photo put); res.json() would throw on that and turn a success
+    // into "couldn't reach the server".
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
   }
 
   /* The wire shape. rev and updatedAt are server-owned, so are not sent up. */
