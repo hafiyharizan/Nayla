@@ -95,6 +95,8 @@ const srv = createServer(async (q, res) => {
     const fn = path.split('/').pop();
     try {
       const out = fns[fn](JSON.parse(b || '{}'));
+      // PostgREST answers a `returns void` function with 204 and no body.
+      if (out == null) { res.writeHead(204); res.end(); return; }
       res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(out));
     } catch (e) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ message: e.message })); }
     return;
