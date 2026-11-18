@@ -45,6 +45,7 @@ create or replace function nayla.now_ms()
 returns bigint
 language sql
 volatile
+set search_path = pg_catalog
 as $$ select (extract(epoch from clock_timestamp()) * 1000)::bigint $$;
 
 
