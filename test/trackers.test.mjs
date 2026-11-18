@@ -128,10 +128,10 @@ async function pngBuffer(p, color) {
 /* ── 1. trackers on and off ───────────────────────────────── */
 {
   const { ctx, p } = await phone('toggles');
-  ok('all six trackers are on by default',
+  ok('all seven trackers are on by default',
     (await p.evaluate(() => Features.types().every(t => Store.trackerOn(t)))));
-  ok('four quick-log tiles (feed, diaper, sleep, solids)',
-    (await p.locator('#quickGrid .quick').count()) === 4);
+  ok('five quick-log tiles (feed, diaper, sleep, bath, solids)',
+    (await p.locator('#quickGrid .quick').count()) === 5);
   ok('Growing tab shows', await visible(p, '.tab[data-tab="growing"]'));
 
   // Log a meal, then hide solids: the entry stays, but the tracker goes.
@@ -167,6 +167,7 @@ async function pngBuffer(p, color) {
 
   // Can't switch everything off.
   await p.locator('[data-tracker="feed"]').uncheck();
+  await p.locator('[data-tracker="bath"]').uncheck();
   await p.locator('[data-tracker="diaper"]').click();   // refused, so not uncheck()
   ok('the last tracker refuses to turn off',
     await p.locator('[data-tracker="diaper"]').isChecked() &&

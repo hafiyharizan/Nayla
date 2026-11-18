@@ -34,10 +34,24 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
 - A header photo with her name and age. Tap 📷 to pick one; it stays on that phone
   and is never uploaded. Until one is picked, the newest milestone photo stands in.
   **Settings → Baby → Remove home photo** takes it away again.
+- **Next up** — what she probably needs next, most urgent first, marked **Now**,
+  **Soon**, or with a time ("Next feed around 4:40 PM"):
+  - **Feed** — due once her usual gap between feeds has passed (worked out from the
+    last three days), or an age-based one until there's enough history (about every
+    2h for a newborn, 3h at 3–6 months). While she sleeps it says *feed her when she
+    wakes*.
+  - **Sleep** — awake past her wake window: *time for her to sleep*. A daytime nap
+    past about 2h (2½h under 3 months): *time to wake her*. Night sleep is left
+    alone, except that a newborn who hasn't fed for 4h is woken for a feed.
+  - **Diaper** — a check every 2–4h depending on age and her usual rhythm; not while
+    she sleeps at night.
+  - **Bath** — from her own rhythm once three baths are logged, otherwise every two
+    days; only suggested in the daytime while she's awake.
+
+  Each due item has a button to log it, or to start or end the sleep.
 - **Right now** — up to five alerts worked out from the log, most urgent first:
-  awake past her wake window (with a **Start sleep** button), a sleep left running,
-  a first allergen to watch for the next two hours, a longer gap than usual since the
-  last feed, fewer wet diapers than usual late in the day, a reaction noted, her
+  a sleep left running, a first allergen to watch for the next two hours,
+  fewer wet diapers than usual late in the day, a reaction noted, her
   month-birthdays, and gentle suggestions (starting solids around 6 months, common
   allergens not tried yet, measurements due). Each can be dismissed — for the day,
   or a week for suggestions — and only trackers that are on produce alerts. With
@@ -61,7 +75,7 @@ the tab you were using.
   wake window. It turns blue while she's asleep and red once she's past the window.
 - Time since the last feed, last diaper, and the length of the last sleep. Tap any
   of them to edit that entry.
-- One-tap logging for a feed, diaper, sleep, or a solid meal.
+- One-tap logging for a feed, diaper, sleep, bath, or a solid meal.
 - Today's running totals and the most recent entries.
 
 **Growing** — the slow-moving things, looked back on over months.

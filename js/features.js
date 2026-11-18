@@ -214,6 +214,35 @@ const Features = (() => {
     },
   };
 
+  /* ── baths ──────────────────────────────────────────────── */
+  /* Just the moment, so Home can say when the next one is due. */
+  const bath = {
+    label: 'Bath',
+    noun: 'bath',
+    icon: '🛁',
+    quick: true,
+    fields: [
+      { name: 'at', input: 'datetime', label: 'Time' },
+      { name: 'note', input: 'textarea', label: 'Note (optional)' },
+    ],
+
+    toValues(record) {
+      return { at: record?.at ?? Date.now(), note: record?.note ?? '' };
+    },
+
+    fromValues(v) {
+      return { at: v.at, end: null, note: v.note, data: {} };
+    },
+
+    describe(record) {
+      return { title: 'Bath', detail: '' };
+    },
+
+    tally(record, totals) {
+      totals.baths = (totals.baths || 0) + 1;
+    },
+  };
+
   /* ── solids ─────────────────────────────────────────────── */
 
   /* The common allergens, matched against what was typed. English plus the
@@ -478,10 +507,10 @@ const Features = (() => {
     },
   };
 
-  const registry = { feed, diaper, sleep, solids, growth, milestone };
+  const registry = { feed, diaper, sleep, bath, solids, growth, milestone };
 
   /** The order features appear in quick-log buttons, filters and summaries. */
-  const ORDER = ['feed', 'diaper', 'sleep', 'solids', 'growth', 'milestone'];
+  const ORDER = ['feed', 'diaper', 'sleep', 'bath', 'solids', 'growth', 'milestone'];
 
   return {
     get(type) { return registry[type] || null; },
