@@ -28,6 +28,11 @@ user agents, because the platforms diverge:
 It also covers dismissal persisting, Settings still offering it afterwards, and
 an already-installed app never nagging.
 
+`fresh.test.mjs` serves the app with GitHub Pages' ten-minute cache header,
+"deploys" a change, and checks the next open gets all of it — never a new
+`index.html` with an old `home.js` — and that offline it opens the copy it
+last fetched.
+
 `pair.test.mjs` runs the two-phone pairing flow against a mock backend: one
 phone generates a code and renders a QR, the other opens the link and ends up
 configured and synced with nothing typed. It also covers the secret being
