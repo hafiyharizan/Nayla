@@ -1,4 +1,5 @@
-/* Next up: what she is likely to need next, worked out from the log.
+/* Next up: what she is likely to need next, worked out from the log. Its
+ * cards share Log's Right now carousel with the alerts (carousel.js).
  *
  * One line each for feeding, sleep, her diaper and her bath (and any
  * medicine given in the last day), saying either
@@ -293,7 +294,6 @@ const Next = (() => {
   function render() {
     const list = items();
     const box = document.getElementById('logNext');
-    document.getElementById('nextHead').hidden = !list.length;
     box.hidden = !list.length;
     box.innerHTML = list.map((it, i) => `
       <li class="next next-${it.level}" data-next="${escapeHtml(it.key)}" style="--i:${i}">

@@ -1223,6 +1223,46 @@ body[data-view="home"] .topbar { display: none; }
 .hero-cam svg { width: 22px; height: 22px; }
 
 .alerts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+/* Right now on Log: alerts and Next up as one sideways row of cards that
+   snap into place, the next one peeking in from the right (carousel.js).
+   The row bleeds to the screen edges so cards slide off them, not off an
+   invisible margin. Its two lists step aside (display: contents) and
+   `order` puts the most urgent first, whichever list it came from. */
+.carousel {
+  position: relative;
+  display: flex; gap: 10px; align-items: stretch;
+  margin: 0 -20px; padding: 2px 20px 4px;
+  overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scroll-padding-inline: 20px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.carousel::-webkit-scrollbar { display: none; }
+.carousel:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-lg); }
+.carousel > .alerts, .carousel > .next-list { display: contents; }
+.carousel > .next-list[hidden] { display: none; }
+.carousel .alert, .carousel .next {
+  flex: 0 0 calc(100% - 40px); max-width: 420px; min-width: 0;
+  scroll-snap-align: start; scroll-snap-stop: always;
+}
+/* One card alone takes the full width. */
+.carousel.is-single .alert, .carousel.is-single .next { flex-basis: 100%; max-width: none; }
+.carousel .alert-warn { order: 0; }
+.carousel .next-now   { order: 1; }
+.carousel .next-soon  { order: 2; }
+.carousel .alert-info, .carousel .alert-joy { order: 3; }
+.carousel .alert-tip  { order: 4; }
+.carousel .next-later { order: 5; }
+.carousel .alert-calm { order: 0; }
+.carousel-dots { display: flex; justify-content: center; gap: 6px; margin: 12px 0 0; }
+.carousel-dots[hidden] { display: none; }
+.carousel-dots i {
+  width: 6px; height: 6px; border-radius: 3px;
+  background: var(--text-dim); opacity: .35;
+  transition: width .3s cubic-bezier(.22, 1, .36, 1), opacity .3s;
+}
+.carousel-dots i.is-on { width: 18px; opacity: .9; }
 .alert {
   position: relative;
   display: flex; gap: 13px; align-items: flex-start;
