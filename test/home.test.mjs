@@ -103,9 +103,40 @@ const hasAlert = async (p, re) => (await alertTitles(p)).some(t => re.test(t));
   await ctx.close();
 
   // No birthday, nothing logged, nothing due: a calm line, not an empty box.
-  const quiet = await phone('quiet', { settings: { dob: '' } });
+  // (Bath off, or Next up would offer its "log her baths" card instead.)
+  const quiet = await phone('quiet', { settings: { dob: '', trackers: { bath: false } } });
   ok('calm when nothing needs attention', await hasAlert(quiet.p, /All calm/), (await alertTitles(quiet.p)).join(' | '));
+  ok('…as a single card with no dots', await quiet.p.$eval('#logCarousel', c => c.classList.contains('is-single'))
+    && await quiet.p.isHidden('#logDots'));
   await quiet.ctx.close();
+  // With Next up to say something, "All calm" would contradict it.
+  const bathOnly = await phone('bath-only', { settings: { dob: '' } });
+  ok('no "All calm" beside a Next up card', !(await hasAlert(bathOnly.p, /All calm/)));
+  await bathOnly.ctx.close();
+
+  // Right now and Next up share one sideways row, most urgent first.
+  const busy = await phone('carousel', { records: [
+    { type: 'sleep', at: Date.now() - 5 * H, end: Date.now() - 3 * H },
+    { type: 'diaper', at: Date.now() - 6 * H, data: { kind: 'wet' } },
+  ] });
+  await onLog(busy.p);
+  const row = await busy.p.$eval('#logCarousel', c => ({
+    scrolls: getComputedStyle(c).overflowX === 'auto' && c.scrollWidth > c.clientWidth,
+    order: [...c.querySelectorAll('li')].sort((a, b) => a.offsetLeft - b.offsetLeft).map(l => l.className),
+    sameRow: new Set([...c.querySelectorAll('li')].map(l => l.offsetTop)).size === 1,
+  }));
+  ok('one row of cards that scrolls sideways', row.scrolls && row.sameRow, JSON.stringify(row));
+  ok('…"Now" cards first, later ones last', /next-now/.test(row.order[0]) && /next-later/.test(row.order.at(-1)), row.order.join(' | '));
+  ok('…with a dot per card', (await busy.p.$$('#logDots i')).length === row.order.length);
+  ok('…and no separate Next up heading', (await busy.p.locator('#view-log h2', { hasText: 'Next up' }).count()) === 0);
+  const before = await busy.p.$eval('#logCarousel', c => c.scrollLeft);
+  await busy.p.waitForTimeout(6000);
+  ok('it drifts on to the next card by itself', (await busy.p.$eval('#logCarousel', c => c.scrollLeft)) > before);
+  await busy.p.locator('#logCarousel').dispatchEvent('pointerdown');
+  const held = await busy.p.$eval('#logCarousel', c => c.scrollLeft);
+  await busy.p.waitForTimeout(5500);
+  ok('…and holds still after you touch it', (await busy.p.$eval('#logCarousel', c => c.scrollLeft)) === held);
+  await busy.ctx.close();
 }
 
 /* ── 2. next up ────────────────────────────────────────────── */

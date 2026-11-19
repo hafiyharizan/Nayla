@@ -1,6 +1,6 @@
 /* Right now: what needs attention, and a few gentle suggestions, worked out
- * from the log — never more than five. Shown on Log, above Next up, since
- * each of them is something to do.
+ * from the log — never more than five. Shown on Log in one swipeable row
+ * with Next up's cards (carousel.js), since each of them is something to do.
  *
  * Alert buttons use data-act rather than the data-log / data-entry buttons
  * used everywhere else; Log's click handler (wire, below) runs them, and the
@@ -219,7 +219,9 @@ const Alerts = (() => {
 
   function renderAlerts() {
     const list = alerts();
-    document.getElementById('logAlerts').innerHTML = list.length
+    // "All calm" only when Next up has nothing to say either — they share
+    // one carousel, and a calm card beside "Diaper check, now" contradicts it.
+    document.getElementById('logAlerts').innerHTML = list.length || Next.items().length
       ? list.map((a, i) => `
         <li class="alert alert-${a.level}" data-alert="${escapeHtml(a.id)}" style="--i:${i}">
           <span class="alert-icon tone-${TONE[a.id.split(':')[0]] || 'none'}" aria-hidden="true">${a.icon}</span>

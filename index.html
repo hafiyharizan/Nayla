@@ -102,13 +102,14 @@
     </button>
 
     <h2 class="section-title" id="alertsTitle">Right now</h2>
-    <ul class="alerts" id="logAlerts"></ul>
-
-    <div class="section-head" id="nextHead">
-      <h2 class="section-title">Next up</h2>
-      <span class="section-meta">from her age and rhythm</span>
+    <!-- Alerts and Next up share one row of cards that swipes sideways and
+         drifts on by itself (carousel.js). -->
+    <div class="carousel" id="logCarousel" role="region" aria-roledescription="carousel"
+         aria-labelledby="alertsTitle" tabindex="0">
+      <ul class="alerts" id="logAlerts"></ul>
+      <ul class="next-list" id="logNext"></ul>
     </div>
-    <ul class="next-list" id="logNext"></ul>
+    <div class="carousel-dots" id="logDots" aria-hidden="true"></div>
 
     <h2 class="section-title">Recent</h2>
     <ul class="entries" id="recentList"></ul>
@@ -442,6 +443,7 @@
 <script src="js/growing.js"></script>
 <script src="js/next.js"></script>
 <script src="js/alerts.js"></script>
+<script src="js/carousel.js"></script>
 <script src="js/home.js"></script>
 <script src="js/app.js"></script>
 </body>

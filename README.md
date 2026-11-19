@@ -59,14 +59,17 @@ the tab you were using.
   she's asleep and red once she's past the window.
 - One-tap logging for a feed, diaper, sleep, bath, a dose of medicine, or a solid
   meal, and **Say it instead** for voice.
-- **Right now** — up to five alerts worked out from the log, most urgent first:
+- **Right now** — one row of cards you swipe sideways, most urgent first,
+  that drifts on to the next card every few seconds (it holds still while you
+  touch it, and under reduced motion). It holds two kinds of card:
+- *Alerts* — up to five worked out from the log:
   a sleep left running, a first allergen to watch for the next two hours,
   fewer wet diapers than usual late in the day, a reaction noted, her
   month-birthdays, and gentle suggestions (starting solids around 6 months, common
   allergens not tried yet, measurements due). Each can be dismissed — for the day,
   or a week for suggestions — and only trackers that are on produce alerts. With
-  nothing to say it says **All calm**.
-- **Next up** — what she probably needs next, most urgent first, marked **Now**,
+  nothing to say, and nothing coming up, it says **All calm**.
+- *Next up* — what she probably needs next, marked **Now**,
   **Soon**, or with a time ("Next feed around 4:40 PM"):
   - **Feed** — due once her usual gap between feeds has passed (worked out from the
     last three days), or an age-based one until there's enough history (about every
@@ -83,8 +86,8 @@ the tab you were using.
   Each due item has a button to log it, or to start or end the sleep.
 - The most recent entries. Tap one to edit it.
 
-While something on Log needs doing now — a warning under **Right now**, or a
-**Next up** item marked **Now** — the Log tab carries a red dot, so it shows from Home.
+While something on Log needs doing now — a warning, or a Next up card marked
+**Now** — the Log tab carries a red dot, so it shows from Home.
 
 **Growing** — the slow-moving things, looked back on over months.
 - **Growth:** latest weight, length and head size, each with its WHO percentile, and
@@ -329,6 +332,7 @@ js/wake.js            wake-window ranges and current awake/asleep state
 js/sheet.js           the add/edit sheet, rendered from a feature's fields
 js/growing.js         the Growing tab: growth chart, milestones, foods tried
 js/next.js            Next up: when to feed, sleep, wake, change, bathe; next dose
+js/carousel.js        Log's Right now row: swipe, snap, drift on, dots
 js/home.js            the Home tab: header photo, alerts, Today, the 7-day charts
 js/app.js             views, live timers, stats, import/export
 sw.js                 offline caching

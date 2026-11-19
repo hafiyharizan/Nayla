@@ -32,6 +32,7 @@
     document.querySelectorAll('.view').forEach(v => { v.hidden = v.dataset.view !== name; });
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('is-on', t.dataset.tab === name));
     window.scrollTo(0, 0);
+    if (name === 'log') Carousel.restart();
     render();
     enter();
   }
@@ -139,6 +140,7 @@
     if (!sleepOn) $('#fixSleep').hidden = true;
     Alerts.render();
     Next.render();
+    Carousel.refresh();
     renderList($('#recentList'), records.slice(0, 8), settings);
     if (!sleepOn) return;
 
