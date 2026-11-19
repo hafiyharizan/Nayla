@@ -9,11 +9,18 @@
  * that outright: online, you always get what's actually deployed; offline,
  * you fall back to the last good copy, so nothing is lost.
  *
+ * "Fresh" has to mean fresh from the server, not from the browser's HTTP
+ * cache: GitHub Pages lets files be cached for ten minutes, and a plain
+ * fetch() takes that copy. After a deploy that mixed versions — a new
+ * index.html with an old home.js — and Home stopped drawing after the
+ * photo. Every request here therefore revalidates (cache: 'no-cache'): the
+ * server answers 304 Not Modified when nothing changed, so it stays cheap.
+ *
  * CACHE is bumped whenever the shell's file list changes, so activate()
  * actually has something to clean up — the version number itself does no
  * work beyond giving that comparison something to look at.
  */
-const CACHE = 'nayla-v14';
+const CACHE = 'nayla-v15';
 const SHELL = [
   './',
   './index.html',
@@ -45,7 +52,9 @@ const SHELL = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(SHELL.map(url => new Request(url, { cache: 'no-cache' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
@@ -58,10 +67,18 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  // Only the app's own files; anything else goes straight to the network.
+  if (new URL(event.request.url).origin !== self.location.origin) return;
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-cache' })
       .then(res => {
-        if (res.ok) caches.open(CACHE).then(c => c.put(event.request, res.clone()));
+        // Clone now, before the page starts reading the body: cloned later,
+        // once the cache had opened, it failed silently and the offline copy
+        // stayed whatever was there at install.
+        if (res.ok) {
+          const copy = res.clone();
+          event.waitUntil(caches.open(CACHE).then(c => c.put(event.request, copy)));
+        }
         return res;
       })
       .catch(() => caches.match(event.request))
