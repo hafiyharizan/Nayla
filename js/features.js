@@ -80,7 +80,7 @@ const Features = (() => {
       return { title: FEED_METHOD[record.data.method] || 'Feed', detail: bits.join(' · ') };
     },
 
-    /* The Now screen's status card for the most recent one. */
+    /* Home's since-last row, for the most recent one. */
     /* "Since feed 3h 12m": the number alone fits a third of a small phone,
      * where "3h 12m ago" wraps. */
     statusLabel: 'Since feed',
@@ -248,7 +248,7 @@ const Features = (() => {
       totals.baths = (totals.baths || 0) + 1;
     },
 
-    /* History's line for the day; no Today tile, so the Now grid stays 2×2. */
+    /* History's line for the day; no Today tile, so Home's grid stays 2×2. */
     daySummary(totals) {
       const n = totals.baths || 0;
       return n ? `${n} bath${n === 1 ? '' : 's'}` : '';

@@ -79,6 +79,19 @@ const Growing = (() => {
     </section>`;
   }
 
+  /** Her newest measurement of each kind, for Home: label, record (or
+   *  null), the value as shown, and its WHO percentile (or null). */
+  function latest() {
+    const settings = Store.settings();
+    const records = Store.byType('growth');
+    return INDICATORS.map(([key, label]) => {
+      const record = records.find(r => r.data[key] != null) || null;
+      return { key, label, record,
+        value: record ? show(key, record.data[key], settings) : '—',
+        pct: record ? percentileOf(key, record, settings) : null };
+    });
+  }
+
   function show(key, value, settings) {
     return key === 'weight' ? Fmt.weight(value, settings.growthUnits) : Fmt.length(value, settings.growthUnits);
   }
@@ -294,5 +307,5 @@ const Growing = (() => {
     });
   }
 
-  return { render, wire, anyOn };
+  return { render, wire, anyOn, latest };
 })();

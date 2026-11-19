@@ -36,7 +36,7 @@ page.on('pageerror', e => errs.push(e.message));
 const ok = (n,c,x='') => { if(!c) fails.push(n); console.log(`${c?'PASS':'FAIL'} — ${n}${x?` (${x})`:''}`); };
 
 await page.goto('http://localhost:4195/index.html');
-await page.click('.tab[data-tab="now"]');   // the app opens on Home
+await page.click('.tab[data-tab="log"]');   // the app opens on Home
 
 // Four days ago: a sleep started and never closed. Plus a real completed
 // sleep and a feed just before it, as the real log had.
@@ -88,11 +88,10 @@ ok('prompt disappears once fixed', !(await page.isVisible('#fixSleep')));
 // And the day-totals bug: a sleep still running must count up to now, not as
 // zero. Her day starts 3 hours ago here (a set time), so the test is the same
 // whatever the clock says when it runs.
-const dayTotal = () => page.evaluate(() => {
-  const cells = [...document.querySelectorAll('#todaySummary .today-cell')];
-  const cell = cells.find(c => c.querySelector('span')?.textContent === 'Sleep');
-  return cell ? cell.querySelector('b').textContent.trim() : null;
-});
+// Today's totals are on Home.
+await page.click('.tab[data-tab="home"]');
+const dayTotal = () => page.evaluate(() =>
+  document.querySelector('#homeSummary .sum-sleep .sum-value')?.textContent.trim() ?? null);
 await page.evaluate(() => {
   const start = new Date(Date.now() - 3 * 3600000);
   const hhmm = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;

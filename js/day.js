@@ -15,7 +15,7 @@
  * starts at the set time instead.
  *
  * Everything that adds up "a day" goes through here: the Today tiles and
- * 7-day charts on Home, Today on Now, and the day groups in History.
+ * Today tiles and 7-day charts on Home, and the day groups in History.
  */
 const Day = (() => {
   const RAD = Math.PI / 180;

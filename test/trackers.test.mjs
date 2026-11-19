@@ -101,7 +101,7 @@ async function phone(label, settings = {}) {
     if (m.type() === 'error' && !/status of 404/.test(m.text())) errs.push(`${label}: ${m.text()}`);
   });
   await p.goto(`http://localhost:${PORT}/index.html`);
-  await p.click('.tab[data-tab="now"]');   // the app opens on Home
+  await p.click('.tab[data-tab="log"]');   // the app opens on Home
   await p.evaluate(s => {
     localStorage.clear();
     localStorage.setItem('nayla.settings.v1', JSON.stringify({ name: 'Nayla', dob: '2026-06-04', ...s }));
@@ -138,10 +138,12 @@ async function pngBuffer(p, color) {
   await p.evaluate(() => Store.add({ type: 'solids', at: Date.now(), data: { foods: ['banana'] } }));
   await tab(p, 'settings');
   await p.locator('[data-tracker="solids"]').uncheck();
-  await tab(p, 'now');
+  await tab(p, 'log');
   ok('solids tile hidden when off', (await p.locator('.quick-solids').count()) === 0);
-  ok('solids hidden from Today', !(await p.locator('#todaySummary').textContent()).includes('Solids'));
   ok('solids entry hidden from Recent', !(await p.locator('#recentList').textContent()).includes('Banana'));
+  await tab(p, 'home');
+  ok('solids hidden from Today', !(await p.locator('#homeSummary').textContent()).includes('Solids'));
+  await tab(p, 'log');
   ok('…but the entry is kept', (await p.evaluate(() => Store.byType('solids').length)) === 1);
 
   await p.click('[data-log="feed"]');
@@ -155,10 +157,11 @@ async function pngBuffer(p, color) {
   // Turning sleep off takes the wake ring with it.
   await tab(p, 'settings');
   await p.locator('[data-tracker="sleep"]').uncheck();
-  await tab(p, 'now');
+  await tab(p, 'log');
   ok('wake card hidden when sleep is off', !(await visible(p, '#wakeCard')));
-  ok('status row narrows to what is left',
-    (await p.locator('#statusRow .stat').count()) === 2);
+  await tab(p, 'home');
+  ok("Home's since-last row narrows to what is left",
+    (await p.locator('#homeSince .since').count()) === 2);
 
   // All three slow trackers off: the Growing tab goes.
   await tab(p, 'settings');
@@ -176,7 +179,7 @@ async function pngBuffer(p, color) {
 
   // And back on: the entry reappears.
   await p.locator('[data-tracker="solids"]').check();
-  await tab(p, 'now');
+  await tab(p, 'log');
   ok('turning it back on brings the entry back', (await p.locator('#recentList').textContent()).includes('Banana'));
   await ctx.close();
 }
@@ -350,7 +353,7 @@ async function pngBuffer(p, color) {
   ok('server copy holds no image data', !payload.includes('data:image') && !payload.includes('/9j/'));
 
   await settle(mum.p);
-  await tab(mum.p, 'now'); await tab(mum.p, 'growing');
+  await tab(mum.p, 'log'); await tab(mum.p, 'growing');
   await mum.p.waitForSelector('.m-photo img:not([hidden])', { timeout: 3000 }).catch(() => {});
   ok('other phone decrypts and shows it',
     await mum.p.locator('.m-photo img').evaluate(img => img.src.startsWith('data:image/jpeg') && img.naturalWidth > 0));
@@ -370,7 +373,7 @@ async function pngBuffer(p, color) {
   await settle(dad.p);
   ok('unsharing takes it off the server', !onServer(m.data.photo));
   await settle(mum.p);
-  await tab(mum.p, 'now'); await tab(mum.p, 'growing');
+  await tab(mum.p, 'log'); await tab(mum.p, 'growing');
   await mum.p.waitForTimeout(300);
   ok("unsharing removes mum's copy",
     await mum.p.locator('.m-photo.is-missing').isVisible() &&

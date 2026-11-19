@@ -16,9 +16,13 @@
    * a reload — including the one after an app update — keeps you where you
    * were, while opening the app afresh always starts at Home. */
   const VIEW_KEY = 'nayla.view';
-  const VIEWS = ['home', 'now', 'growing', 'history', 'settings'];
+  const VIEWS = ['home', 'log', 'growing', 'history', 'settings'];
   let currentView = (() => {
-    try { const v = sessionStorage.getItem(VIEW_KEY); return VIEWS.includes(v) ? v : 'home'; }
+    try {
+      const v = sessionStorage.getItem(VIEW_KEY);
+      if (v === 'now') return 'log';             // Log was called Now
+      return VIEWS.includes(v) ? v : 'home';
+    }
     catch { return 'home'; }
   })();
 
@@ -83,6 +87,7 @@
          <span class="quick-icon">${f.icon}</span><span>${f.label}</span>
        </button>`).join('');
     $('#quickTitle').hidden = !quick.length;
+    $('#quickGrid').style.setProperty('--cols', quick.length === 4 ? 2 : Math.min(3, quick.length) || 1);
 
     if (historyFilter !== 'all' && !Store.trackerOn(historyFilter)) historyFilter = 'all';
     $('#historyFilters').innerHTML =
@@ -122,15 +127,18 @@
 
   const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
 
-  /* ── NOW view ────────────────────────────────────────────── */
-  function renderNow() {
+  /* ── LOG view ────────────────────────────────────────────── */
+  /* Everything that is done rather than looked at: the wake-window ring and
+   * its sleep button, what needs attention now, what's coming up, the log
+   * buttons, and the last few entries to fix up. Home is the overview. */
+  function renderLog() {
     const settings = Store.settings();
     const records = visibleRecords();
     const sleepOn = Store.trackerOn('sleep');
     $('#wakeCard').hidden = !sleepOn;
     if (!sleepOn) $('#fixSleep').hidden = true;
-    renderStatusRow(settings);
-    renderToday(settings);
+    Alerts.render();
+    Next.render();
     renderList($('#recentList'), records.slice(0, 8), settings);
     if (!sleepOn) return;
 
@@ -181,41 +189,6 @@
       sub.textContent = aim;
       el.append(sub);
     }
-  }
-
-  function renderStatusRow(settings) {
-    const shown = enabled().filter(f => f.statusLabel);
-    $('#statusRow').hidden = !shown.length;
-    $('#statusRow').style.setProperty('--cols', shown.length || 1);
-    $('#statusRow').innerHTML = shown.map(f => {
-      const record = Store.latest(f.type, { completedOnly: Boolean(f.statusCompletedOnly) });
-      const value = record ? f.statusValue(record, settings) : '—';
-      // Each bit of the note wraps whole: "Wet + dirty", never "Wet / + dirty".
-      const note = record
-        ? String(f.status(record, settings)).split(' · ').map(escapeHtml).map(b => `<i>${b}</i>`).join(' · ')
-        : 'nothing logged';
-      return `<button class="stat" data-quick="${f.type}">
-        <span class="stat-icon">${f.icon}</span>
-        <span class="stat-label">${f.statusLabel}</span>
-        <strong class="stat-value">${escapeHtml(value)}</strong>
-        <span class="stat-note">${note}</span>
-      </button>`;
-    }).join('');
-  }
-
-  function renderToday(settings) {
-    const totals = dayTotals(Date.now());
-    const cells = enabled().filter(f => f.todayCell);
-    // Up to three across; four sit as a tidy 2×2 rather than three and a straggler.
-    $('#todaySummary').style.setProperty('--cols', cells.length === 4 ? 2 : Math.min(3, cells.length) || 1);
-    $('#todayTitle').hidden = !cells.length;
-    $('#todaySummary').innerHTML = cells.map(f => {
-      const cell = f.todayCell(totals, settings);
-      if (!cell) return '';
-      return `<div class="today-cell">
-        <span>${cell.label}</span><b>${escapeHtml(String(cell.value))}</b>
-        <em>${cell.note ? escapeHtml(cell.note) : '&nbsp;'}</em></div>`;
-    }).join('');
   }
 
   /** Totals for her day containing `ms` — sunrise to sunrise, with each
@@ -330,13 +303,6 @@
   document.addEventListener('click', e => {
     const log = e.target.closest('[data-log]');
     if (log) { openSheet(log.dataset.log); return; }
-
-    const quick = e.target.closest('[data-quick]');
-    if (quick) {
-      const last = Store.latest(quick.dataset.quick);
-      openSheet(quick.dataset.quick, last || undefined);
-      return;
-    }
 
     const entryBtn = e.target.closest('[data-entry]');
     if (entryBtn) {
@@ -842,21 +808,25 @@
 
     buildChrome();
     refreshGuests();
+    // Home has no alerts of its own, so the Log tab carries a dot while
+    // something there needs doing now.
+    const urgent = Alerts.alerts().some(a => a.level === 'warn') || Next.items().some(i => i.level === 'now');
+    document.querySelector('.tab[data-tab="log"]').classList.toggle('has-dot', urgent);
     if (currentView === 'home') Home.render();
-    else if (currentView === 'now') renderNow();
+    else if (currentView === 'log') renderLog();
     else if (currentView === 'growing') Growing.render($('#growingBody'), { renderList });
     else if (currentView === 'history') renderHistory();
     else if (currentView === 'settings') renderSettings();
   }
 
   Growing.wire($('#growingBody'), render);
-  Home.wire({
+  Home.wire({ go: showView, toast });
+  Alerts.wire($('#view-log'), {
     openSheet: type => openSheet(type),
     openEntry: id => { const r = Store.get(id); if (r) openSheet(r.type, r); },
     toggleSleep,
     unguest,
     rerender: render,
-    toast,
   });
 
   $('#homePhotoClear').addEventListener('click', async () => {

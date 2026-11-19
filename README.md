@@ -30,10 +30,42 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
 
 ## What it does
 
-**Home** — where the app opens.
+**Home** — where the app opens: an overview to look at, sized to fit one phone
+screen. There is nothing to log from here; that's all on **Log**.
 - A header photo with her name and age. Tap 📷 to pick one; it stays on that phone
   and is never uploaded. Until one is picked, the newest milestone photo stands in.
   **Settings → Baby → Remove home photo** takes it away again.
+- **Since last** — how long she has been awake (or asleep), and the time since her
+  last feed and diaper.
+- **Today** — feeds, sleep, diapers and solid meals since her day began (see *Her
+  day* below), each against what she usually has *by this time of day* over
+  the last 7 days (so 9am isn't compared with a whole day), with a badge —
+  **↑ 3 more**, **↓ 1h less** or **On track** — and the last 7 days drawn small, with
+  a dashed line at her average day. Tap a tile to open its full 7-day chart (feeds
+  open bottle volume too): a column per day, today on the right with its value.
+  Tap a day to read it out; tap again to go back. Tap the tile again to close it.
+- **Growing** — her latest weight, length and head size with their WHO percentiles.
+  Tap it to open the Growing tab.
+
+The top of Home says hello by the hour (with a **Night shift** for the 3am feed) and
+counts her age in days. Cards rise in when you open the tab.
+
+The app always opens on Home; a reload (such as the one after an update) keeps you on
+the tab you were using.
+
+**Log** — everything you tap (it used to be called **Now**).
+- A ring showing how long Nayla has been awake, filling toward the age-appropriate
+  wake window, with the button to start or end a sleep beside it. It turns blue while
+  she's asleep and red once she's past the window.
+- One-tap logging for a feed, diaper, sleep, bath, a dose of medicine, or a solid
+  meal, and **Say it instead** for voice.
+- **Right now** — up to five alerts worked out from the log, most urgent first:
+  a sleep left running, a first allergen to watch for the next two hours,
+  fewer wet diapers than usual late in the day, a reaction noted, her
+  month-birthdays, and gentle suggestions (starting solids around 6 months, common
+  allergens not tried yet, measurements due). Each can be dismissed — for the day,
+  or a week for suggestions — and only trackers that are on produce alerts. With
+  nothing to say it says **All calm**.
 - **Next up** — what she probably needs next, most urgent first, marked **Now**,
   **Soon**, or with a time ("Next feed around 4:40 PM"):
   - **Feed** — due once her usual gap between feeds has passed (worked out from the
@@ -49,34 +81,10 @@ Anyone who taps "Not now" can find it again under **Settings → This phone**.
     days; only suggested in the daytime while she's awake.
 
   Each due item has a button to log it, or to start or end the sleep.
-- **Right now** — up to five alerts worked out from the log, most urgent first:
-  a sleep left running, a first allergen to watch for the next two hours,
-  fewer wet diapers than usual late in the day, a reaction noted, her
-  month-birthdays, and gentle suggestions (starting solids around 6 months, common
-  allergens not tried yet, measurements due). Each can be dismissed — for the day,
-  or a week for suggestions — and only trackers that are on produce alerts. With
-  nothing to say it says **All calm**.
-- **Today** — feeds, sleep, diapers and solid meals since her day began (sunrise —
-  see *Her day* below), each against what she usually has *by this time of day* over
-  the last 7 days (so 9am isn't compared with a whole day), with a badge —
-  **↑ 3 more**, **↓ 1h less** or **On track** — and a bar filling toward her average
-  whole day.
-- **Last 7 days** — a column per day for each tracker, today on the right with its
-  value, and a line at her average. Tap a day to read it out; tap again to go back.
+- The most recent entries. Tap one to edit it.
 
-The top of Home says hello by the hour (with a **Night shift** for the 3am feed) and
-counts her age in days. Cards rise in when you open the tab.
-
-The app always opens on Home; a reload (such as the one after an update) keeps you on
-the tab you were using.
-
-**Now** — the quick-logging screen.
-- A ring showing how long Nayla has been awake, filling toward the age-appropriate
-  wake window. It turns blue while she's asleep and red once she's past the window.
-- Time since the last feed, last diaper, and the length of the last sleep. Tap any
-  of them to edit that entry.
-- One-tap logging for a feed, diaper, sleep, bath, a dose of medicine, or a solid meal.
-- Today's running totals and the most recent entries.
+While something on Log needs doing now — a warning under **Right now**, or a
+**Next up** item marked **Now** — the Log tab carries a red dot, so it shows from Home.
 
 **Growing** — the slow-moving things, looked back on over months.
 - **Growth:** latest weight, length and head size, each with its WHO percentile, and
@@ -110,7 +118,7 @@ day starts, which trackers to show, sync, and backup/restore.
 
 Whichever it is, **an entry counts on the day it started — a sleep in full** — so
 10pm to 3am is one sleep on one day, never two hours on one and three on the next.
-It applies everywhere a day is added up: Today on Home and Now, the 7-day charts,
+It applies everywhere a day is added up: Today and the 7-day charts on Home,
 History's day groups, and when a dismissed alert comes back. Home's Today header says
 when her day began ("since midnight", "since Subuh, 4:37 AM").
 
@@ -244,7 +252,7 @@ and your doctor come first.
 **Settings → Babysitter → Give a babysitter access** makes a link for someone looking
 after her for a while: their name, how long (until tonight, 24 hours, or until you
 remove it) and whether they can log too. They scan the QR or open the link, and their
-phone shows her log — Home, Now, Growing and History, with a strip across the top
+phone shows her log — Home, Log, Growing and History, with a strip across the top
 saying whose log it is and until when, and no Settings.
 
 - They never get the pairing code. The link carries a token of its own, so removing
@@ -342,7 +350,7 @@ Sync in particular is type-agnostic, so a new feature arrives already syncing.
 
 ## Logging by voice
 
-Tap **Say it instead** on the Now screen and speak plainly — "feed 130 ml",
+Tap **Say it instead** on the Log screen and speak plainly — "feed 130 ml",
 "wet nappy", "she's asleep", "woke up", "dirty nappy 20 minutes ago". It shows
 what it heard and what it's about to write, and waits to be told yes; speech
 recognition misfires, and a silently invented feed is worse than one extra tap.

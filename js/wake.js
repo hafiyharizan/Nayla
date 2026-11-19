@@ -32,7 +32,7 @@ const Wake = (() => {
    */
   /* No baby sleeps through this. An open sleep older than it is not a baby
    * asleep — it is a "Start sleep" tap that never got its "Woke up", and
-   * without this cap it hijacks the Now screen indefinitely: the ring counts
+   * without this cap it hijacks the Log screen indefinitely: the ring counts
    * up forever, the wake window is unusable, and closing it finally would
    * write an absurd sleep into the history. */
   const MAX_OPEN_SLEEP_MS = 12 * 3600 * 1000;
