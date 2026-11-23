@@ -20,12 +20,13 @@
  * actually has something to clean up — the version number itself does no
  * work beyond giving that comparison something to look at.
  */
-const CACHE = 'nayla-v16';
+const CACHE = 'nayla-v17';
 const SHELL = [
   './',
   './index.html',
   './styles.css',
   './manifest.webmanifest',
+  './js/theme.js',
   './js/config.js',
   './js/format.js',
   './js/who.js',

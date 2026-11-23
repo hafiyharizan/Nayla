@@ -1,18 +1,22 @@
 /* ─────────────────────────────────────────────────────────────
    Nayla — baby tracker
 
-   Bone paper, white cards, black ink. Cards carry no outline and
-   cast no shadow; they separate from the background by being
-   whiter than it, and by the space around them. The only strong
-   colour is black, saved for the thing you are meant to press.
+   Lavender and milk. The page is a soft lilac-grey; cards are
+   white, lifted a breath off it with a shadow you feel more than
+   see. One colour — lavender — means "press this", the way a
+   hand on the back means "I'm here".
 
    Each kind of entry owns a pastel — butter for feeds, periwinkle
    for diapers, dusty rose for sleep, apricot for solids, sage for
    growth, lilac for milestones — used at full strength on the log
    tiles and dialled up only where a mark has to be small.
 
-   Type is the system grotesque at regular and medium. Nothing is
-   set heavy; size and space do the work instead.
+   Two moods, Light and Night. The switch in the header picks one;
+   until it's touched, the phone's own setting decides. The theme
+   lives on <html data-theme>, set before first paint (index.html).
+
+   Headings use the rounded system face where there is one, so
+   the app reads gentle rather than clinical.
 
    Mobile-first. Nothing smaller than a 48px tap target.
    ───────────────────────────────────────────────────────────── */
@@ -20,57 +24,61 @@
 :root {
   color-scheme: light;
 
-  /* Surfaces — bone, then white on top of it */
-  --bg:          #EFEDE7;
+  /* Surfaces — lilac milk, then white on top of it */
+  --bg:          #F4F1F9;
+  --bg-glow:     #E9DEFB;
   --surface:     #FFFFFF;
-  --surface-2:   #F4F2EC;
-  --surface-3:   #E4E1D8;
+  --surface-2:   #F4F0FA;
+  --surface-3:   #E5DEF0;
+  --glass:       rgba(255, 255, 255, .78);
 
-  /* Ink */
-  --text:        #1A1915;
-  --text-soft:   #57544C;
-  --text-dim:    #918E84;
-  --line:        #E5E2D9;
-  --line-soft:   #EFECE4;
+  /* Ink — a plum-black, never pure */
+  --text:        #1F1A29;
+  --text-soft:   #595169;
+  --text-dim:    #877F98;
+  --line:        #E8E3F0;
+  --line-soft:   #F0ECF6;
 
-  /* Black is the brand. It means "press this". */
-  --accent:      #16150F;
-  --accent-deep: #000000;
-  --accent-soft: #E9E6DE;
+  /* Lavender is the brand. It means "press this". */
+  --accent:      #9150E6;
+  --accent-deep: #7A3BD0;
+  --accent-bright: #B47CF5;
+  --accent-soft: #EEE4FD;
   --on-accent:   #FFFFFF;
 
   /* One pastel each, plus a deeper tone for anything drawn small */
   --feed:        #B48A2C;   /* deep enough to read as a chart mark on white (3.2:1) */
-  --feed-soft:   #F7E59B;
+  --feed-soft:   #FAEBB4;
   --diaper:      #7778D2;
-  --diaper-soft: #D3D4F3;
+  --diaper-soft: #DCDDF8;
   --sleep:       #C08275;
-  --sleep-soft:  #F0DBD3;
+  --sleep-soft:  #F5E1DA;
   --solids:      #C9773A;
-  --solids-soft: #F8DDC4;
+  --solids-soft: #FBE3CF;
   --bath:        #3A8FA3;
-  --bath-soft:   #CDE8EE;
+  --bath-soft:   #D3ECF2;
   --med:         #C0577E;
-  --med-soft:    #F6D6E2;
+  --med-soft:    #F9DCE7;
   --growth:      #4A8F52;   /* the line on the growth chart: checked for contrast */
-  --growth-soft: #D8EBD3;
+  --growth-soft: #DCEFD8;
   --milestone:   #9A6CC0;
-  --milestone-soft: #E8DBF4;
+  --milestone-soft: #ECE0F8;
 
-  --danger:      #BF5349;
+  --danger:      #C4534A;
   --warn:        #C79526;
-  --warn-soft:   #F7EBC8;
+  --warn-soft:   #FBEFCF;
 
-  --radius-xl: 30px;
+  --radius-xl: 32px;
   --radius-lg: 26px;
   --radius:    22px;
   --radius-sm: 16px;
   --radius-xs: 12px;
 
-  /* Almost nothing. Only things that genuinely float get one. */
-  --shadow-sm: none;
-  --shadow:    none;
-  --shadow-lg: 0 2px 10px rgba(32, 28, 20, .06), 0 20px 44px -16px rgba(32, 28, 20, .18);
+  /* Soft and purple-tinted, the way light falls through a curtain. */
+  --shadow-sm: 0 1px 2px rgba(70, 40, 110, .04);
+  --shadow:    0 1px 2px rgba(70, 40, 110, .04), 0 10px 28px -14px rgba(70, 40, 110, .14);
+  --shadow-lg: 0 2px 10px rgba(70, 40, 110, .07), 0 22px 48px -16px rgba(70, 40, 110, .26);
+  --shadow-accent: 0 10px 24px -10px rgba(145, 80, 230, .55);
 
   --tap: 48px;
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -78,54 +86,59 @@
 
   --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
           Roboto, "Helvetica Neue", system-ui, sans-serif;
-  --display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI",
-             Roboto, "Helvetica Neue", system-ui, sans-serif;
+  --display: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont,
+             "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
+/* Night: a deep plum room with a nightlight on. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --bg:          #1A1917;
-    --surface:     #252320;
-    --surface-2:   #2E2B27;
-    --surface-3:   #3A3631;
+  --bg:          #13101A;
+  --bg-glow:     #2A1D42;
+  --surface:     #1E1A28;
+  --surface-2:   #28233A;
+  --surface-3:   #363048;
+  --glass:       rgba(30, 26, 40, .76);
 
-    --text:        #F3F1EC;
-    --text-soft:   #BBB6AD;
-    --text-dim:    #8D8880;
-    --line:        #332F2A;
-    --line-soft:   #2C2924;
+  --text:        #F4F0FB;
+  --text-soft:   #C0B8D0;
+  --text-dim:    #8E869E;
+  --line:        #312B40;
+  --line-soft:   #282334;
 
-    /* The black pill becomes a bone pill; the logic is unchanged. */
-    --accent:      #F3F1EC;
-    --accent-deep: #FFFFFF;
-    --accent-soft: #332F2A;
-    --on-accent:   #1A1917;
+  /* The lavender pill gets lighter, and its words go dark. */
+  --accent:      #C49BFF;
+  --accent-deep: #D7BBFF;
+  --accent-bright: #A774F2;
+  --accent-soft: #33284A;
+  --on-accent:   #1B1226;
 
-    --feed:        #E8C45E;
-    --feed-soft:   #3A3319;
-    --diaper:      #9FA0E8;
-    --diaper-soft: #272848;
-    --sleep:       #DFA392;
-    --sleep-soft:  #3D2B25;
-    --solids:      #E39A5E;
-    --solids-soft: #3F2A18;
-    --bath:        #6DBCCF;
-    --bath-soft:   #1B3238;
-    --med:         #E58CAE;
-    --med-soft:    #3D2230;
-    --growth:      #62A86A;
-    --growth-soft: #22331F;
-    --milestone:   #B98FDB;
-    --milestone-soft: #33263F;
+  --feed:        #E8C45E;
+  --feed-soft: color-mix(in srgb, var(--feed) 20%, var(--surface));
+  --diaper:      #9FA0E8;
+  --diaper-soft: color-mix(in srgb, var(--diaper) 20%, var(--surface));
+  --sleep:       #DFA392;
+  --sleep-soft: color-mix(in srgb, var(--sleep) 20%, var(--surface));
+  --solids:      #E39A5E;
+  --solids-soft: color-mix(in srgb, var(--solids) 20%, var(--surface));
+  --bath:        #6DBCCF;
+  --bath-soft: color-mix(in srgb, var(--bath) 20%, var(--surface));
+  --med:         #E58CAE;
+  --med-soft: color-mix(in srgb, var(--med) 20%, var(--surface));
+  --growth:      #62A86A;
+  --growth-soft: color-mix(in srgb, var(--growth) 20%, var(--surface));
+  --milestone:   #B98FDB;
+  --milestone-soft: color-mix(in srgb, var(--milestone) 20%, var(--surface));
 
-    --danger:      #E5776B;
-    --warn:        #E5B74A;
-    --warn-soft:   #473818;
+  --danger:      #EE8276;
+  --warn:        #E5B74A;
+  --warn-soft:   #44371F;
 
-    --shadow-lg: 0 2px 10px rgba(0, 0, 0, .4), 0 24px 50px -18px rgba(0, 0, 0, .65);
-  }
+  --shadow-sm: none;
+  --shadow:    0 1px 0 rgba(255, 255, 255, .03) inset;
+  --shadow-lg: 0 2px 10px rgba(0, 0, 0, .45), 0 24px 50px -18px rgba(0, 0, 0, .7);
+  --shadow-accent: 0 10px 26px -12px rgba(196, 155, 255, .45);
 }
 
 * { box-sizing: border-box; }
@@ -142,40 +155,68 @@ body {
   padding-bottom: calc(104px + var(--safe-b));
   overscroll-behavior-y: contain;
   letter-spacing: -.01em;
+  transition: background-color .35s ease, color .35s ease;
 }
 
-h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: 600; letter-spacing: -.028em; }
+/* A soft lavender glow at the top of every screen, like morning light. */
+body::before {
+  content: '';
+  position: fixed; inset: 0 0 auto 0;
+  height: 420px;
+  background:
+    radial-gradient(60% 70% at 85% 0%, var(--bg-glow) 0%, transparent 70%),
+    radial-gradient(50% 60% at 0% 10%, color-mix(in srgb, var(--bg-glow) 60%, transparent) 0%, transparent 70%);
+  opacity: .9;
+  pointer-events: none;
+  z-index: -1;
+}
+
+h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: 700; letter-spacing: -.028em; }
 button { font: inherit; color: inherit; }
 
 ::selection { background: var(--accent-soft); color: var(--text); }
 
 /* ── top bar ───────────────────────────────────────────────── */
-.topbar { padding: calc(var(--safe-t) + 28px) 20px 6px; }
-.topbar-inner { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+/* A floating white pill, as on Home: her name on the left, the
+   Light/Night switch on the right. */
+.topbar { padding: calc(var(--safe-t) + 16px) 20px 4px; max-width: 620px; margin: 0 auto; }
+.topbar-inner, .home-bar {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 60px;
+  padding: 8px 8px 8px 20px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+.topbar-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 9px; }
 
 .topbar h1 {
   font-family: var(--display);
-  font-size: 30px;
-  font-weight: 600;
-  letter-spacing: -.035em;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.03em;
   line-height: 1.1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 .age {
   margin: 0;
   color: var(--text-dim);
-  font-size: 13.5px;
-  font-weight: 400;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: -.005em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 main { padding: 0 20px; max-width: 620px; margin: 0 auto; }
 
 .section-title {
   font-family: var(--display);
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -.03em;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.035em;
   color: var(--text);
   margin: 30px 2px 13px;
 }
@@ -312,7 +353,8 @@ main { padding: 0 20px; max-width: 620px; margin: 0 auto; }
   background: var(--accent);
   border-color: transparent;
   color: var(--on-accent);
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: var(--shadow-accent);
 }
 .btn-primary:active { transform: scale(.975); filter: brightness(1.12); }
 
@@ -509,7 +551,8 @@ main { padding: 0 20px; max-width: 620px; margin: 0 auto; }
   cursor: pointer; white-space: nowrap;
   transition: background .18s ease, color .18s ease;
 }
-.chip.is-on { background: var(--accent); color: var(--on-accent); }
+.chip { box-shadow: var(--shadow-sm); }
+.chip.is-on { background: var(--accent); color: var(--on-accent); box-shadow: var(--shadow-accent); }
 
 /* ── stats: the 7-day column charts ───────────────────────── */
 .stat-block {
@@ -564,7 +607,7 @@ input[type="datetime-local"], input[type="number"], select, textarea {
   transition: border-color .18s ease, background .18s ease;
 }
 input:focus, select:focus, textarea:focus {
-  border-color: var(--text);
+  border-color: var(--accent);
   background: var(--surface);
 }
 textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
@@ -597,7 +640,7 @@ input::-webkit-calendar-picker-indicator:hover { opacity: .8; }
 input::-webkit-datetime-edit { padding: 0; }
 
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
-  outline: 2px solid var(--text);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -611,9 +654,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   bottom: calc(10px + var(--safe-b));
   max-width: 560px; margin: 0 auto;
   display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
-  padding: 7px 6px;
-  background: var(--surface);
-  border-radius: 28px;
+  padding: 8px 6px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  border-radius: 32px;
   box-shadow: var(--shadow-lg);
   z-index: 20;
 }
@@ -628,11 +673,8 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.tab[data-tab="home"]     { --tab-soft: var(--sleep-soft);     --tab-ac: var(--sleep); }
-.tab[data-tab="now"]      { --tab-soft: var(--feed-soft);      --tab-ac: var(--feed); }
-.tab[data-tab="growing"]  { --tab-soft: var(--growth-soft);    --tab-ac: var(--growth); }
-.tab[data-tab="history"]  { --tab-soft: var(--diaper-soft);    --tab-ac: var(--diaper); }
-.tab[data-tab="settings"] { --tab-soft: var(--milestone-soft); --tab-ac: var(--milestone); }
+/* Every tab lights up the same lavender, as in one family. */
+.tab { --tab-soft: var(--accent-soft); --tab-ac: var(--accent-bright); }
 
 .tab-pill {
   width: 54px; height: 32px;
@@ -656,7 +698,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 .tab:active .tab-pill { transform: scale(.92); }
 
-.tab.is-on { color: var(--text); }
+.tab.is-on { color: var(--accent); }
 .tab.is-on .tab-label { font-weight: 600; }
 .tab.is-on .tab-pill { background: var(--tab-soft); }
 .tab.is-on .tab-ic { animation: tab-pop .36s cubic-bezier(.3, 1.6, .5, 1); }
@@ -671,9 +713,9 @@ body[data-view="home"] .topbar { display: none; }
 .sheet-backdrop[hidden] { display: none; }   /* [hidden] must beat display:flex */
 .sheet-backdrop {
   position: fixed; inset: 0; z-index: 40;
-  background: rgba(26, 25, 21, .4);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  background: rgba(30, 18, 48, .38);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: flex-end; justify-content: center;
   animation: fade .22s ease;
 }
@@ -681,6 +723,7 @@ body[data-view="home"] .topbar { display: none; }
 
 .sheet {
   background: var(--surface);
+  box-shadow: var(--shadow-lg);
   width: 100%; max-width: 620px;
   border: 0;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
@@ -1164,63 +1207,173 @@ body[data-view="home"] .topbar { display: none; }
 
 .hero {
   position: relative;
-  height: 196px;
+  min-height: 248px;
+  margin-top: 14px;
   border-radius: var(--radius-xl);
   overflow: hidden;
-  /* No photo yet: soft blobs of the tracker pastels. */
+  isolation: isolate;
+  box-shadow: var(--shadow);
+  /* A lavender dawn, with the tracker pastels as soft light. */
   background:
-    radial-gradient(circle at 88% 12%, var(--milestone-soft) 0 22%, transparent 23%),
-    radial-gradient(circle at 8% 62%, var(--diaper-soft) 0 16%, transparent 17%),
-    radial-gradient(circle at 70% 96%, var(--growth-soft) 0 20%, transparent 21%),
-    linear-gradient(150deg, var(--sleep-soft) 0%, var(--feed-soft) 100%);
+    radial-gradient(70% 80% at 100% 0%, color-mix(in srgb, var(--accent-bright) 34%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 60% at 0% 100%, var(--sleep-soft) 0%, transparent 75%),
+    linear-gradient(160deg, var(--accent-soft) 0%, var(--surface) 100%);
 }
+/* Her photo leans in from the right and melts into the card, the way the
+   illustration does in the reference. */
 .hero-img {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
+  position: absolute; top: 0; right: 0;
+  width: 66%; height: 100%;
   object-fit: cover;
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,.55) 22%, #000 48%);
+  mask-image: linear-gradient(to right, transparent 0%, rgba(0,0,0,.55) 22%, #000 48%);
+  z-index: -1;
 }
 .hero-img[hidden] { display: none; }
-/* Only a photo needs the shade that keeps white text readable. */
-.hero-shade { position: absolute; inset: 0; pointer-events: none; }
+.hero-shade { position: absolute; inset: 0; pointer-events: none; z-index: -1; }
+/* Keeps the words on the left readable whatever the photo holds. */
 .hero.has-photo .hero-shade {
-  background: linear-gradient(to top, rgba(15, 13, 10, .66) 0%, rgba(15, 13, 10, .2) 40%, transparent 62%);
+  background: linear-gradient(to right, color-mix(in srgb, var(--surface) 70%, transparent) 0%, transparent 55%);
 }
 
-/* Frosted glass: the greeting and the camera float over the photo. */
-.hero-hi, .hero-cam {
-  background: rgba(255, 255, 255, .78);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  backdrop-filter: blur(14px) saturate(1.4);
-  color: #1A1915;
+/* No photo yet: a sleepy moon among stars and a cloud. */
+.hero-art {
+  position: absolute; right: -8px; top: 18px;
+  width: 54%; max-width: 230px; height: auto;
+  z-index: -1;
+  pointer-events: none;
 }
-.hero-hi {
-  position: absolute; left: 16px; top: 16px;
-  margin: 0; padding: 7px 13px 7px 11px;
-  border-radius: 999px;
-  font-size: 13px; font-weight: 600; letter-spacing: -.015em;
+.hero.has-photo .hero-art { display: none; }
+.hero-art .moon  { fill: var(--accent-bright); opacity: .9; }
+.hero-art .cheek { fill: var(--sleep); opacity: .45; }
+.hero-art .face  { fill: none; stroke: var(--on-accent); stroke-width: 2.2; stroke-linecap: round; }
+:root[data-theme="dark"] .hero-art .face { stroke: #1B1226; }
+.hero-art .cloud { fill: var(--surface); opacity: .95; }
+:root[data-theme="dark"] .hero-art .cloud { fill: var(--surface-3); }
+.hero-art .star  { fill: var(--feed); opacity: .8; transform-box: fill-box; transform-origin: center; animation: twinkle 3.2s ease-in-out infinite; }
+.hero-art .star:nth-of-type(2) { animation-delay: -1.1s; }
+.hero-art .star:nth-of-type(3) { animation-delay: -2.2s; }
+@keyframes twinkle { 50% { opacity: .25; transform: scale(.7); } }
+
+.hero-text {
+  position: relative;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  min-height: 248px;
+  padding: 22px 76px 20px 22px;
+  max-width: 78%;
 }
-.hero-text { position: absolute; left: 20px; right: 78px; bottom: 16px; }
-.hero-name {
+.hero-note {
+  margin: 0 0 auto;
+  max-width: 13em;
   font-family: var(--display);
-  font-size: 40px; font-weight: 700;
-  letter-spacing: -.05em; line-height: 1;
+  font-size: 23px; font-weight: 700;
+  letter-spacing: -.035em; line-height: 1.16;
   color: var(--text);
+  text-wrap: balance;
 }
-.hero-age { margin: 6px 0 0; font-size: 14.5px; font-weight: 500; color: var(--text-soft); }
-.hero.has-photo .hero-name { color: #fff; }
-.hero.has-photo .hero-age { color: rgba(255, 255, 255, .9); }
-.hero-add { margin: 8px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--text-soft); }
+.hero-name {
+  margin-top: 18px;
+  font-family: var(--display);
+  font-size: 40px; font-weight: 800;
+  letter-spacing: -.05em; line-height: 1;
+  color: var(--accent);
+}
+.hero-age {
+  align-self: flex-start;
+  margin: 10px 0 0; padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  font-size: 13px; font-weight: 600; color: var(--text-soft);
+  white-space: nowrap;
+}
+.hero-add { margin: 10px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--text-soft); }
 .hero-add[hidden] { display: none; }
 .hero-cam {
-  position: absolute; right: 14px; bottom: 14px;
-  width: 46px; height: 46px;
+  position: absolute; right: 16px; bottom: 16px;
+  width: 48px; height: 48px;
   display: grid; place-items: center;
   border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-accent);
   cursor: pointer;
   transition: transform .18s cubic-bezier(.3, 1.6, .5, 1);
 }
 .hero-cam:active { transform: scale(.9) rotate(-8deg); }
 .hero-cam svg { width: 22px; height: 22px; }
+
+/* ── Home's own top bar: the hello, and the Light/Night switch ── */
+.home-bar { padding-left: 10px; }
+.hero-hi {
+  flex: 1; min-width: 0;
+  margin: 0;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 600; letter-spacing: -.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hero-hi-icon {
+  flex: none;
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  font-size: 19px;
+}
+.hero-hi-text { overflow: hidden; text-overflow: ellipsis; }
+
+/* ── the Light/Night switch ────────────────────────────────── */
+/* A real switch (role="switch"): a lavender track with a sun and a moon,
+   and a knob that slides to whichever is on. */
+.theme-switch {
+  --w: 74px; --h: 42px; --k: 34px;
+  position: relative;
+  flex: none;
+  width: var(--w); height: var(--h);
+  padding: 0;
+  border: 0; border-radius: 999px;
+  background: var(--accent-soft);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .35s ease;
+}
+.theme-switch::before {           /* a bigger hit area: 48px tall */
+  content: ''; position: absolute; inset: -4px -2px;
+}
+.theme-switch .ts-ic {
+  position: absolute; top: 50%;
+  width: 18px; height: 18px;
+  margin-top: -9px;
+  color: var(--accent);
+  opacity: .55;
+  transition: opacity .3s ease;
+}
+.theme-switch .ts-sun  { left: 12px; }
+.theme-switch .ts-moon { right: 12px; }
+.theme-switch .ts-knob {
+  position: absolute; top: 4px; left: 4px;
+  width: var(--k); height: var(--k);
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-accent);
+  transition: transform .45s cubic-bezier(.3, 1.4, .5, 1), background .35s ease;
+}
+.theme-switch .ts-knob svg { width: 18px; height: 18px; }
+.theme-switch .ts-knob .ts-moon-k { display: none; }
+.theme-switch[aria-checked="true"] .ts-knob { transform: translateX(calc(var(--w) - var(--k) - 8px)) rotate(-25deg); }
+.theme-switch[aria-checked="true"] .ts-knob .ts-sun-k { display: none; }
+.theme-switch[aria-checked="true"] .ts-knob .ts-moon-k { display: block; }
+.theme-switch:active .ts-knob { width: calc(var(--k) + 6px); }
+
+/* Changing mood: a circle of the new theme grows from the switch. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { animation: theme-reveal .6s cubic-bezier(.4, 0, .2, 1); }
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--tx, 90%) var(--ty, 40px)); }
+  to   { clip-path: circle(150vmax at var(--tx, 90%) var(--ty, 40px)); }
+}
 
 .alerts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 
@@ -1306,6 +1459,10 @@ body[data-view="home"] .topbar { display: none; }
   cursor: pointer;
 }
 .alert-x:active { background: var(--surface-2); }
+
+/* Cards float a breath off the page. */
+.since, .alert, .next, .g-tile, .m-card, .f-row, .home-growth, .guest-row { box-shadow: var(--shadow); }
+.quick { box-shadow: var(--shadow-sm); }
 
 /* ── babysitter access ─────────────────────────────────────── */
 /* On her phone: a quiet strip across the top of every tab. */
@@ -1534,9 +1691,6 @@ body[data-view="home"] .topbar { display: none; }
   animation-delay: calc(.15s + var(--i, 0) * 45ms);
 }
 
-@media (prefers-color-scheme: dark) {
-  .hero-hi, .hero-cam { background: rgba(37, 35, 32, .72); color: #F3F1EC; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001s !important; transition-duration: .001s !important; }

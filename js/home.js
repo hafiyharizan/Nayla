@@ -131,11 +131,38 @@ const Home = (() => {
     return { icon: '🌙', text: 'Night shift' };
   }
 
+  /** A kind word for whoever is holding the phone. Night gets its own;
+   *  by day it changes once a day, not on every redraw. */
+  function note(name, now = new Date()) {
+    const h = now.getHours();
+    if (h >= 21 || h < 5) {
+      const night = [
+        'Night shifts are hard. You’re doing beautifully.',
+        `Quiet hours with ${name}. Rest when you can.`,
+        'The world is asleep, and you’re still showing up.',
+      ];
+      return night[now.getDate() % night.length];
+    }
+    const day = [
+      `Every little moment with ${name} matters.`,
+      'Small hands, big love.',
+      'You’re doing a wonderful job.',
+      'One feed, one nap, one cuddle at a time.',
+      'Today’s tiny moments are tomorrow’s memories.',
+      'Look after you too — you matter here.',
+    ];
+    const n = Math.floor(now.getTime() / 864e5);
+    return day[n % day.length];
+  }
+
   async function renderHero() {
     const hero = document.getElementById('hero');
     const s = Store.settings();
     const hi = greeting();
-    hero.querySelector('.hero-hi').textContent = `${hi.icon} ${hi.text}`;
+    const bar = document.querySelector('.hero-hi');
+    bar.querySelector('.hero-hi-icon').textContent = hi.icon;
+    bar.querySelector('.hero-hi-text').textContent = hi.text;
+    hero.querySelector('.hero-note').textContent = note(s.name || 'your baby');
     hero.querySelector('.hero-name').textContent = s.name || 'Baby';
     // Day 1 is the day she was born.
     const day = Fmt.ageDays(s.dob);
