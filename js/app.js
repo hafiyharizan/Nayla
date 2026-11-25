@@ -874,6 +874,54 @@
     if (confirm(`Leave ${Store.settings().name || 'her'}'s log? It will be removed from this phone.`)) Guest.wipe(false);
   });
 
+  /* ── first run ───────────────────────────────────────────────
+   * A new phone has no name or birthday, and almost every screen leans on
+   * the birthday — wake windows, feed gaps, growth percentiles. So it asks
+   * once, before anything else. A babysitter's phone is skipped: the
+   * family's details arrive with the invite. */
+  function wireSetup() {
+    const form = $('#setupForm');
+    const dob = $('#setupDob');
+    const err = $('#setupError');
+    let sex = '';
+    const d = new Date();
+    dob.max = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    $('#setupSex').addEventListener('click', e => {
+      const btn = e.target.closest('button[data-value]');
+      if (!btn) return;
+      sex = btn.dataset.value;
+      for (const b of $('#setupSex').querySelectorAll('button')) {
+        const on = b === btn;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-checked', String(on));
+      }
+    });
+
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const problem = !dob.value ? 'Add the date of birth to continue.'
+        : dob.value > dob.max ? "The date of birth can't be in the future."
+        : !sex ? 'Pick a growth chart — girl or boy.'
+        : '';
+      err.textContent = problem;
+      err.hidden = !problem;
+      if (problem) return;
+      Store.saveSettings({ name: $('#setupName').value.trim(), dob: dob.value, sex, setupDone: true });
+      $('#setup').hidden = true;
+      showView('home');
+    });
+  }
+
+  function needsSetup() {
+    const s = Store.settings();
+    // A babysitter whose access just ended sees that message, not a welcome.
+    return !s.setupDone && !s.guestToken && !guestInvite && !Guest.wasEnded();
+  }
+
+  wireSetup();
+  $('#setup').hidden = !needsSetup();
+
   Store.onChange(render);
   render();
   enter();

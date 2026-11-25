@@ -1530,6 +1530,33 @@ body[data-view="home"] .topbar { display: none; }
 .guest-ended-card p { font-size: 14.5px; line-height: 1.55; color: var(--text-soft); margin: 0 0 22px; }
 .guest-ended-card .btn { width: 100%; }
 
+/* First run: a new phone asks for name, birthday and growth chart, once. */
+.setup {
+  position: fixed; inset: 0; z-index: 70;
+  display: grid; place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  background: var(--bg);
+  overflow-y: auto;
+}
+.setup[hidden] { display: none; }
+.setup-card {
+  width: 100%; max-width: 380px;
+  padding: 30px 22px 24px;
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+}
+.setup-icon { font-size: 38px; text-align: center; margin-bottom: 6px; }
+.setup-card h2 {
+  font-family: var(--display); font-size: 24px; font-weight: 600;
+  letter-spacing: -.03em; margin: 0 0 6px; text-align: center;
+}
+.setup-lead { font-size: 14.5px; line-height: 1.55; color: var(--text-soft); margin: 0 0 22px; text-align: center; }
+.setup-card .seg { margin-bottom: 0; }
+.setup-card > .btn { width: 100%; margin-top: 6px; }
+.setup-error { font-size: 13.5px; color: var(--danger); margin: 0 0 12px; }
+.setup-error[hidden] { display: none; }
+.setup-fine { font-size: 12.5px; line-height: 1.5; color: var(--text-dim); margin: 14px 0 0; text-align: center; }
+
 /* Next up: one line per need. Due now is lifted out in warm yellow with
    its button; later ones sit quietly, a schedule rather than a nudge. */
 .next-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

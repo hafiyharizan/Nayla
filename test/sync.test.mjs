@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skipSetup } from './skip-setup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TYPES = { '.html':'text/html', '.css':'text/css', '.js':'text/javascript',
@@ -73,6 +74,8 @@ const ok = (name, cond, extra='') => { (cond ? console.log : (m)=>{fails.push(m)
 
 async function newPhone(label) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+
+  await skipSetup(ctx);
   const page = await ctx.newPage();
   page.on('pageerror', e => problems.push(`${label} pageerror: ${e.message}`));
   page.on('console', m => {
@@ -129,11 +132,11 @@ async function newPhone(label) {
   ok('Home\'s since-last row built from registry', (await page.locator('#homeSince .since').count()) === 3);
   await page.click('.tab[data-tab="log"]');
   ok('filters built from registry', (await page.locator('#historyFilters .chip').count()) === 9);   // All + eight trackers
-  // Her age in whatever unit suits it now — asserting "weeks" dated badly
-  // the moment she turned four months old.
+  // No baby's details are built in any more: the setup screen asks for them.
   const age = await page.textContent('#babyAge');
-  ok('dob defaults to her real birthday',
-     /^\d+ (day|week|month|year)s? old$/.test(age.trim()), age.trim());
+  ok('no built-in birthday or name',
+     age.trim() === '' && (await page.textContent('#babyName')).trim() === 'Baby',
+     `${await page.textContent('#babyName')} / ${age.trim()}`);
 
   await page.click('[data-log="feed"]');
   await page.fill('input[name="amount"]', '150');

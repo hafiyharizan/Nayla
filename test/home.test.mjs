@@ -9,6 +9,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skipSetup } from './skip-setup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4196;
@@ -53,6 +54,8 @@ const iso = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(
 /** A phone with settings and records already in place, opened fresh. */
 async function phone(label, { settings = {}, records = [], time = null, context = {} } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, ...context });
+
+  await skipSetup(ctx);
   const p = await ctx.newPage();
   if (time) await p.clock.install({ time });     // a fixed "now" that still ticks
   p.on('pageerror', e => errs.push(`${label}: ${e.message}`));

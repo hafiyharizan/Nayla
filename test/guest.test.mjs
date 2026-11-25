@@ -14,6 +14,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skipSetup } from './skip-setup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4199;
@@ -117,6 +118,8 @@ const ok = (n, c, x = '') => { if (!c) fails.push(n); console.log(`${c ? 'PASS' 
 
 async function phone(label) {
   const ctx = await br.newContext({ viewport: { width: 390, height: 844 } });
+
+  await skipSetup(ctx);
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push(`${label}: ${e.message}`));
   p.on('dialog', d => d.accept());

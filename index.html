@@ -28,7 +28,7 @@
 <header class="topbar">
   <div class="topbar-inner">
     <div class="topbar-title">
-      <h1 id="babyName">Nayla</h1>
+      <h1 id="babyName">Baby</h1>
       <p id="babyAge" class="age"></p>
     </div>
     <button class="theme-switch" type="button" role="switch" aria-checked="false" aria-label="Night mode" data-theme-toggle>
@@ -173,7 +173,7 @@
     <div class="card form">
       <label class="field">
         <span>Name</span>
-        <input type="text" id="setName" autocomplete="off" placeholder="Nayla">
+        <input type="text" id="setName" autocomplete="off" placeholder="Baby">
       </label>
       <label class="field">
         <span>Date of birth</span>
@@ -432,6 +432,42 @@
       from this phone. Thanks for looking after her.</p>
     <button class="btn btn-primary" id="guestEndedOk">OK</button>
   </div>
+</div>
+
+<!-- ───────────────────────── FIRST RUN ───────────────────────── -->
+<!-- A new phone asks for the three things every screen needs, once. -->
+<div class="setup" id="setup" hidden>
+  <form class="setup-card" id="setupForm" novalidate aria-labelledby="setupTitle">
+    <div class="setup-icon" aria-hidden="true">🌙</div>
+    <h2 id="setupTitle">Welcome</h2>
+    <p class="setup-lead">Tell us a little about your baby. Wake windows, growth charts
+      and reminders are worked out from this.</p>
+
+    <label class="field">
+      <span>Baby's name <em>optional</em></span>
+      <input type="text" id="setupName" autocomplete="off" maxlength="40" placeholder="Baby">
+    </label>
+    <label class="field">
+      <span>Date of birth</span>
+      <input type="date" id="setupDob" required>
+    </label>
+    <div class="field">
+      <span id="setupSexLabel">Growth chart</span>
+      <div class="seg" role="radiogroup" aria-labelledby="setupSexLabel" id="setupSex">
+        <button type="button" role="radio" aria-checked="false" data-value="girl">Girl</button>
+        <button type="button" role="radio" aria-checked="false" data-value="boy">Boy</button>
+      </div>
+    </div>
+
+    <p class="setup-error" id="setupError" role="alert" hidden></p>
+    <button class="btn btn-primary" type="submit">Start tracking</button>
+
+    <p class="setup-fine">Everything stays on this phone unless you pair another one.
+      This app is not medical advice — follow your baby's cues and talk to your
+      paediatrician with any concerns.</p>
+    <p class="setup-fine">Joining a partner's log? Open the pairing link they send you —
+      then fill this in once on this phone too.</p>
+  </form>
 </div>
 
 <!-- ───────────────────────── ADD TO HOME SCREEN ───────────────────────── -->

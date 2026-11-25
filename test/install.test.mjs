@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { skipSetup } from './skip-setup.mjs';
 const ROOT=new URL('..', import.meta.url).pathname;
 const T={'.html':'text/html','.css':'text/css','.js':'text/javascript','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
 const srv=createServer(async(q,r)=>{let p=decodeURIComponent(q.url.split('?')[0]);if(p==='/')p='/index.html';
@@ -22,6 +23,7 @@ const ok=(n,c,x='')=>{ if(!c) fails.push(n); console.log(`${c?'PASS':'FAIL'} —
 async function open(kind, {installed=false, dismissed=false}={}) {
   const ctx=await br.newContext({viewport:{width:390,height:844},deviceScaleFactor:2,
     userAgent:UA[kind], timezoneId:'Asia/Kuala_Lumpur'});
+  await skipSetup(ctx);
   const p=await ctx.newPage();
   p.on('pageerror',e=>errs.push(`${kind}: ${e.message}`));
   p.on('console',m=>{if(m.type()==='error')errs.push(`${kind}: ${m.text()}`);});

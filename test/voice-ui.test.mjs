@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skipSetup } from './skip-setup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const T = { '.html':'text/html','.css':'text/css','.js':'text/javascript',
@@ -42,6 +43,8 @@ const stub = `
 
 async function phone() {
   const ctx = await br.newContext({ viewport:{width:390,height:844}, timezoneId:'Asia/Kuala_Lumpur' });
+
+  await skipSetup(ctx);
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push(e.message));
   await p.addInitScript(stub);
@@ -116,6 +119,8 @@ await ctx.close();
 
 /* no support → no button at all */
 const ctx2 = await br.newContext({ viewport:{width:390,height:844} });
+
+await skipSetup(ctx2);
 const p2 = await ctx2.newPage();
 p2.on('pageerror', e => errs.push(e.message));
 await p2.addInitScript(`delete window.SpeechRecognition; delete window.webkitSpeechRecognition;`);

@@ -24,8 +24,11 @@ const Store = (() => {
   const SETTINGS_KEY = 'nayla.settings.v1';
 
   const DEFAULT_SETTINGS = {
-    name: 'Nayla',
-    dob: '2026-06-04',
+    // Blank until the first-run setup asks. Every screen already falls back
+    // to "Baby" and an unknown age when these are empty.
+    name: '',
+    dob: '',
+    setupDone: false,          // the first-run setup has been answered (see load)
     units: 'ml',
     growthUnits: 'metric',     // 'metric' (kg, cm) or 'imperial' (lb, in)
     sex: 'girl',               // picks the WHO growth chart
@@ -69,6 +72,13 @@ const Store = (() => {
     } else {
       records = migrateLegacy(readJson(LEGACY_KEY, []));
       if (records.length) persist();       // the v1 key is left untouched
+    }
+    // Phones from before the setup screen never answered it, but they are
+    // plainly set up already: they have a name, a birthday, a log or a
+    // household. Only a phone with none of those is new.
+    if (!('setupDone' in saved)) {
+      settings.setupDone = Boolean(saved.name || saved.dob || records.length ||
+        saved.syncCode || saved.guestToken);
     }
     sort();
   }

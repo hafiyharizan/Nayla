@@ -11,6 +11,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skipSetup } from './skip-setup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const T = { '.html':'text/html','.css':'text/css','.js':'text/javascript',
@@ -30,6 +31,8 @@ await new Promise(r => srv.listen(4195, r));
 
 const br = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {});
 const ctx = await br.newContext({ viewport:{width:390,height:844}, timezoneId:'Asia/Kuala_Lumpur' });
+
+await skipSetup(ctx);
 const page = await ctx.newPage();
 const errs = [], fails = [];
 page.on('pageerror', e => errs.push(e.message));
