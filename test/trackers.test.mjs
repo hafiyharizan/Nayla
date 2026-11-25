@@ -10,6 +10,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skipSetup } from './skip-setup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4195;
@@ -94,6 +95,8 @@ const ok = (name, cond, extra = '') => {
 
 async function phone(label, settings = {}) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Kuala_Lumpur' });
+
+  await skipSetup(ctx);
   const p = await ctx.newPage();
   p.on('pageerror', e => errs.push(`${label}: ${e.message}`));
   p.on('console', m => {

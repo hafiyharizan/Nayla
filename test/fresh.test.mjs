@@ -12,6 +12,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { skipSetup } from './skip-setup.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 4197;
@@ -50,6 +51,9 @@ const ok = (name, cond, extra = '') => {
 };
 
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+
+
+await skipSetup(ctx);
 
 /** Opening the app afresh, as tapping its icon does: a new page each time,
  *  so nothing comes from the old page's memory. */
